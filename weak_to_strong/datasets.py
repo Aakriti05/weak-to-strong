@@ -42,14 +42,44 @@ def load_dataset(ds_name: str, seed: int = 0, split_sizes: Optional[dict] = None
             lambda ex: {"soft_label": [1 - float(ex["hard_label"]), float(ex["hard_label"])]}
         )
         ds = ds.shuffle(seed=seed)  # shuffling a bit pointless for test set but wtv
+        print(type(ds))
         results[split] = ds
     return results
+
+
+# def tokenize_dataset(
+#     raw_ds: HfDataset,
+#     tokenizer: Callable,
+#     max_ctx: int,
+# ):
+#     """
+#     This function prepares the dataset for training. It takes the raw dataset, a formatting function,
+#     a tokenizer, a maximum context length
+
+#     Parameters:
+#     raw_ds: The raw dataset to be processed.
+#     tokenizer: The tokenizer to be used on the formatted dataset.
+#     max_ctx: The maximum context length for the tokenizer.
+
+#     Returns:
+#     ds: The processed and shuffled dataset ready for training.
+#     """
+
+#     def process_function(res):
+#         toks = tokenizer(res["txt"])
+#         return dict(
+#             input_ids=toks["input_ids"],
+#         )
+
+#     ds = raw_ds.map(process_function, batched=False).filter(lambda x: len(x["input_ids"]) < max_ctx)
+#     return ds
 
 
 def tokenize_dataset(
     raw_ds: HfDataset,
     tokenizer: Callable,
     max_ctx: int,
+    weight = 1
 ):
     """
     This function prepares the dataset for training. It takes the raw dataset, a formatting function,
@@ -63,16 +93,26 @@ def tokenize_dataset(
     Returns:
     ds: The processed and shuffled dataset ready for training.
     """
-
     def process_function(res):
         toks = tokenizer(res["txt"])
-        return dict(
-            input_ids=toks["input_ids"],
-        )
-
+        if weight is None:
+            return dict(
+                input_ids=toks["input_ids"],
+            )
+        else:
+            if "weight" not in res.keys():
+            # if weight == 0:
+                return dict(
+                    weight = 1,
+                    input_ids =toks["input_ids"] 
+                )
+            else:
+                return dict(
+                    weight = res["weight"],
+                    input_ids =toks["input_ids"]
+                )
     ds = raw_ds.map(process_function, batched=False).filter(lambda x: len(x["input_ids"]) < max_ctx)
     return ds
-
 
 def hf_loader(*hf_name, split_names=None):
     if split_names is None:

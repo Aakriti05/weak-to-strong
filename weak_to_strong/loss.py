@@ -33,7 +33,27 @@ class xent_loss(LossFnBase):
         loss = torch.nn.functional.cross_entropy(logits, labels)
         return loss.mean()
 
+class weight_xent_loss(LossFnBase):
+    def __init__(self):
+        self.weights = 0
+    def __call__(
+        self, logits: torch.Tensor, labels: torch.Tensor, step_frac: float) -> torch.Tensor:
+        """
+        This function calculates the cross entropy loss between logits and labels.
 
+        Parameters:
+        logits: The predicted values.
+        labels: The actual values.
+        step_frac: The fraction of total training steps completed.
+
+        Returns:
+        The mean of the cross entropy loss.
+        """
+        loss = torch.nn.functional.cross_entropy(logits, labels, reduction="none")
+        loss = loss * self.weights
+        return loss.mean()
+
+        
 class product_loss_fn(LossFnBase):
     """
     This class defines a custom loss function for product of predictions and labels.

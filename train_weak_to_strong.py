@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Sequence, Union
 import fire
 import numpy as np
 import torch
+from datasets import load_dataset, load_from_disk
 
 import weak_to_strong.logger as logger
 from weak_to_strong.common import get_tokenizer
@@ -118,12 +119,12 @@ def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
-    transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
-    n_docs: int = 10000,
-    n_test_docs: int = 200,
+    transfer_loss: Union[str, Sequence[str]] = "xent", #logconf",
+    n_docs: int = 20000, #10000,
+    n_test_docs: int = 10000, #200,
     weak_model_size: str = "gpt2",
     weak_lr: Optional[float] = None,
-    strong_model_size: str = "gpt2-xl",
+    strong_model_size: str = "gpt2-large",
     strong_lr: Optional[float] = None,
     # Defaults to strong_lr
     transfer_lr: Optional[float] = None,
@@ -135,15 +136,16 @@ def main(
     # defaults to gt_epochs
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
-    seed: int = 0,
+    seed: int = 42,
     minibatch_size_per_device: Optional[int] = None,
     train_with_dropout: bool = False,
-    results_folder: str = "/tmp/results",
+    results_folder: str = "./results",
+    sweep_subfolder: str = "Exp3",
     linear_probe: bool = False,
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
     # Set to an absurdly high value so we don't do intermediate evals by default.
-    eval_every: int = 100000000,
+    eval_every: int = 1000000,
 ):
     # this is per device!
     if minibatch_size_per_device is None:
@@ -187,14 +189,14 @@ def main(
     strong_eval_batch_size = strong_model_config.eval_batch_size
 
     # Load dataset
-    dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs))
+    dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs)) #n_test_docs
 
     # Split the training dataset in half
     train_dataset, test_ds = dataset["train"], dataset["test"]
 
     split_data = train_dataset.train_test_split(test_size=0.5, seed=seed)
     train1_ds, train2_ds = split_data["train"], split_data["test"]
-    print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds))
+    print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(train):", len(train_dataset), "len(test):", len(test_ds))
 
     def train_model(
         model_config: ModelConfig,
@@ -267,7 +269,7 @@ def main(
         test_ds,
         loss_type="xent",
         label="weak",
-        subpath=os.path.join("weak_model_gt", weak_model_size.replace("/", "_")),
+        subpath=os.path.join(sweep_subfolder, "weak_model_gt", weak_model_size.replace("/", "_")),
         lr=weak_lr,
         eval_batch_size=weak_eval_batch_size,
         inference_ds=train2_ds,
@@ -284,7 +286,7 @@ def main(
         test_ds,
         loss_type="xent",
         label="strong",
-        subpath=os.path.join("strong_model_gt", strong_model_size.replace("/", "_")),
+        subpath=os.path.join(sweep_subfolder, "strong_model_gt", strong_model_size.replace("/", "_")),
         lr=strong_lr,
         eval_batch_size=strong_eval_batch_size,
         epochs=gt_epochs,
@@ -304,7 +306,7 @@ def main(
             test_ds,
             loss_type=tloss,
             label="weak2strong",
-            subpath=os.path.join(
+            subpath=os.path.join(sweep_subfolder,
                 "strong_model_transfer",
                 f"{weak_model_size.replace('/', '_')}_{strong_model_size.replace('/', '_')}_{tloss}",
             ),
@@ -332,7 +334,7 @@ def main(
 
     with open(
         os.path.join(
-            results_folder,
+            results_folder, sweep_subfolder,
             f"{weak_model_size.replace('/', '_')}_{strong_model_size.replace('/', '_')}.results_summary.json",
         ),
         "w",
