@@ -140,6 +140,7 @@ def seed_torch(seed=1029):
 
 E = 0 #int(sys.argv[1])
 seed_torch(E)
+
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
@@ -164,7 +165,7 @@ def main(
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
     seed: int = 0,
-    minibatch_size_per_device: Optional[int] = None,
+    minibatch_size_per_device: Optional[int] = 8,
     train_with_dropout: bool = False,
     results_folder: str = "./results",
     linear_probe: bool = False,

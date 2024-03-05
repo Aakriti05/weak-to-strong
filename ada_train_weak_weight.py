@@ -140,8 +140,8 @@ def seed_torch(seed=1029):
 
 E = int(sys.argv[1])
 seed_torch(E)
+
 def main(
-    E: int = 2,
     batch_size: int = 32,
     max_ctx: int = 1024,
     train1_name: str = "./sciq/adaboost/train1_10000_{}/".format(E),
@@ -165,7 +165,7 @@ def main(
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
     seed: int = 0,
-    minibatch_size_per_device: Optional[int] = None,
+    minibatch_size_per_device: Optional[int] = 8,
     train_with_dropout: bool = False,
     results_folder: str = "./results",
     linear_probe: bool = False,

@@ -138,7 +138,6 @@ E = int(sys.argv[1])
 # E = 1
 
 def main(
-    E: int = 2,
     batch_size: int = 32,
     max_ctx: int = 1024,
     train1_name: str = "./sciq/adaboost/train1_10000_{}/".format(E-1),
@@ -162,7 +161,7 @@ def main(
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
     seed: int = 0,
-    minibatch_size_per_device: Optional[int] = None,
+    minibatch_size_per_device: Optional[int] = 8,
     train_with_dropout: bool = False,
     results_folder: str = "./results",
     linear_probe: bool = False,
@@ -171,7 +170,7 @@ def main(
     # Set to an absurdly high value so we don't do intermediate evals by default.
     eval_every: int = 100000000,
 ):
-    print(batch_size)
+    print("batch size:", batch_size, "E: ", E)
     # this is per device!
     if minibatch_size_per_device is None:
         minibatch_size_per_device = 1

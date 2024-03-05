@@ -13,11 +13,10 @@ from transformers.modeling_utils import load_sharded_checkpoint
 
 import weak_to_strong.logger as logger
 from weak_to_strong.common import clear_mem
-from weak_to_strong.eval import eval_model_acc
-from weak_to_strong.loss import xent_loss
+from weak_to_strong.eval import eval_model_acc, eval_model_logits
+from weak_to_strong.loss import xent_loss, weight_xent_loss
 from weak_to_strong.model import TransformerWithHead
-
-
+from safetensors.torch import load_file, save_file
 @dataclass
 class ModelConfig:
     name: str
@@ -34,7 +33,7 @@ def train_model(
     ds: datasets.Dataset,
     batch_size: int,
     lr: float = 1e-5,
-    loss_fn: Callable = xent_loss,
+    loss_fn: Optional[Callable] = None,
     log_every: int = 10,
     eval_every: int = 100,
     eval_batch_size: int = 256,
@@ -42,9 +41,11 @@ def train_model(
     eval_ds: Optional[datasets.Dataset] = None,
     gradient_checkpointing: bool = False,
     train_with_dropout: bool = False,
-    epochs: int = 1,
+    epochs: int = 3,
     lr_schedule: str = "cosine_anneal",
     optimizer_name: str = "adam",
+    is_weight: bool = False,
+    num_labels = 2
 ):
     print("LR", lr, "batch_size", batch_size, "minibatch_size", minibatch_size)
     assert batch_size % minibatch_size == 0, "batch size must be divisible by minibatch size"
@@ -90,8 +91,11 @@ def train_model(
 
     while step < nsteps:
         loss_tot = 0
-        if eval_every and (step + 1) % eval_every == 0:
-            eval_results = eval_model_acc(model, eval_ds, eval_batch_size)
+        if eval_every and step % eval_every == 0:
+            if num_labels >= 2:
+                eval_results = eval_model_acc(model, eval_ds, eval_batch_size)
+            else:
+                eval_results = eval_model_logits(model, eval_ds, eval_batch_size)
             if gradient_checkpointing:
                 (
                     model if hasattr(model, "gradient_checkpointing_enable") else model.module
@@ -103,6 +107,7 @@ def train_model(
             logger.logkv("eval_accuracy", eval_accs)
         all_logits = []
         all_labels = []
+        all_weights = []
         for i in range(batch_size // minibatch_size):
             try:
                 mbatch = [next(it) for _ in range(minibatch_size)]
@@ -117,14 +122,27 @@ def train_model(
                 .to(io_device)
             )
             labels = torch.tensor([ex["soft_label"] for ex in mbatch]).to(io_device)
-
+            
+            if is_weight:
+                weight = torch.tensor([ex["weight"] for ex in mbatch]).to(io_device)
+            elif "last_logits" in mbatch[0].keys():
+                weight = torch.tensor([ex["last_logits"] for ex in mbatch]).to(io_device)
+            else:
+                weight = [None]
             logits = model(input_ids)
 
             all_logits.extend(logits.to(io_device))
             all_labels.extend(labels)
+            all_weights.extend(weight)
         all_logits = torch.stack(all_logits)
         all_labels = torch.stack(all_labels)
-        loss = loss_fn(all_logits, all_labels, step_frac=step / nsteps)
+
+        if isinstance(loss_fn, xent_loss):
+            loss = loss_fn(all_logits, all_labels, step_frac=step / nsteps)
+        elif isinstance(loss_fn, weight_xent_loss):
+            all_weights = torch.stack(all_weights)
+            loss_fn.weights = all_weights
+            loss = loss_fn(all_logits, all_labels, step_frac=step / nsteps)
         loss_tot += loss.item()
         loss.backward()
         losses.append(loss_tot)
@@ -158,7 +176,10 @@ def train_model(
     final_eval_results = None
     if eval_every:
         print("Final evaluation:")
-        final_eval_results = eval_model_acc(model, eval_ds, eval_batch_size)
+        if num_labels >= 2:
+            final_eval_results = eval_model_acc(model, eval_ds, eval_batch_size)
+        else:
+            final_eval_results = eval_model_logits(model, eval_ds, eval_batch_size)
         logger.logkv("eval_accuracy", np.mean([r["acc"] for r in final_eval_results]))
         logger.dumpkvs()
     return final_eval_results
@@ -176,7 +197,7 @@ def train_and_save_model(
     eval_batch_size: Optional[int] = None,
     minibatch_size_per_device: Optional[int] = None,
     save_path: Optional[str] = None,
-    loss_fn: Callable = xent_loss,
+    loss_fn: Optional[Callable] = xent_loss,
     label: str = "default",
     force_retrain: bool = False,
     train_with_dropout: bool = False,
@@ -184,6 +205,8 @@ def train_and_save_model(
     lr_schedule: str = "constant",
     optimizer_name: str = "adam",
     eval_every: Optional[int] = None,
+    is_weight: bool = False,   # 用于 AdaBoosting
+    num_labels = 2   # 用于 gradient boosting
 ):
     if eval_batch_size is None:
         eval_batch_size = batch_size
@@ -198,15 +221,17 @@ def train_and_save_model(
         if os.path.exists(os.path.join(save_path, "results.pkl")) and not force_retrain:
             print("loading from", save_path)
             checkpoint_path = os.path.join(save_path, "pytorch_model.bin")
+            # checkpoint_path = os.path.join(save_path, "model.safetensors")
             if not os.path.exists(checkpoint_path):
                 # Assume this means we have a sharded checkpoint, and load it appropriately
                 load_sharded_checkpoint(model, checkpoint_path)
             else:
                 state_dict = torch.load(os.path.join(save_path, "pytorch_model.bin"))
-                state_dict = {
-                    k.replace("transformer.module", "transformer"): v
-                    for (k, v) in state_dict.items()
-                }
+                # state_dict = load_file(os.path.join(save_path, "pytorch_model.bin"))
+                # state_dict = {
+                #     k.replace("transformer.module", "transformer"): v
+                #     for (k, v) in state_dict.items()
+                # }
                 custom_kwargs["state_dict"] = state_dict
             return True
         return False
@@ -217,23 +242,27 @@ def train_and_save_model(
         assert torch.cuda.device_count() > 1, f"you might want more gpus for {model_config.name}"
         model = TransformerWithHead.from_pretrained(
             model_config.name,
-            num_labels=2,
+            num_labels=num_labels,
             device_map="auto",
+            # device_map="sequential",
             linear_probe=linear_probe,
             **custom_kwargs,
         )
         already_trained = maybe_load_model(model)
+        if already_trained:
+            model.load_state_dict(torch.load(os.path.join(save_path, "pytorch_model.bin")))
         # slight misnomer, more like minibatch_size_per_dp_replica
         minibatch_size = minibatch_size_per_device
     else:
         model = TransformerWithHead.from_pretrained(
-            model_config.name, num_labels=2, linear_probe=linear_probe, **custom_kwargs
+            model_config.name, num_labels=num_labels, linear_probe=linear_probe, **custom_kwargs
         ).to("cuda")
         already_trained = maybe_load_model(model)
+        if already_trained:
+            model.load_state_dict(torch.load(os.path.join(save_path, "pytorch_model.bin")))
         # data parallel:  currently not supported with model parallel
-
         minibatch_size = min(minibatch_size_per_device * torch.cuda.device_count(), batch_size)
-
+            
         if torch.cuda.device_count() > 1:
             model = torch.nn.DataParallel(model, output_device=0)
             print(
@@ -244,9 +273,12 @@ def train_and_save_model(
             )
         else:
             minibatch_size = minibatch_size_per_device
-
+   
     if already_trained:
-        test_results = eval_model_acc(model, test_ds, eval_batch_size)
+        if num_labels >= 2:
+            test_results = eval_model_acc(model, test_ds, eval_batch_size)
+        else:
+            test_results = eval_model_logits(model, test_ds, eval_batch_size)
     else:
         start = time.time()
         test_results = train_model(
@@ -264,18 +296,24 @@ def train_and_save_model(
             train_with_dropout=train_with_dropout,
             lr_schedule=lr_schedule,
             optimizer_name=optimizer_name,
+            is_weight=is_weight,
+            num_labels = num_labels
         )
         print("Model training took", time.time() - start, "seconds")
         if save_path:
             # Note: If the model is wrapped by DataParallel, we need to unwrap it before saving
-            (model if hasattr(model, "save_pretrained") else model.module).save_pretrained(
-                save_path
-            )
+            # (model if hasattr(model, "save_pretrained") else model.module).save_pretrained(
+            #     save_path
+            # )
+            torch.save(model.state_dict(), os.path.join(save_path, "pytorch_model.bin"))
             print("saved", save_path)
 
     inference_results = None
     if inference_ds:
-        inference_results = eval_model_acc(model, inference_ds, eval_batch_size)
+        if num_labels >= 2:
+            inference_results = eval_model_acc(model, inference_ds, eval_batch_size)
+        else:
+            inference_results = eval_model_logits(model, inference_ds, eval_batch_size)
         logger.logkv("inference_accuracy", np.mean([r["acc"] for r in inference_results]))
 
     if save_path:
