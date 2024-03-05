@@ -12,8 +12,8 @@ import torch
 # import tiktoken
 import weak_to_strong.logger as logger
 from weak_to_strong.common import get_tokenizer
-from weak_to_strong.datasets import tokenize_dataset
-from datasets import load_dataset,load_from_disk
+from weak_to_strong.datasets import load_dataset, tokenize_dataset
+# from datasets import load_from_disk
 from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss, weight_xent_loss
 from weak_to_strong.train import ModelConfig, train_and_save_model
 
@@ -144,12 +144,13 @@ seed_torch(E)
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
+    ds_name: str = "sciq",
     train1_name: str = "./sciq/adaboost/train1_10000_{}/".format(E),
     train2_name: str = "./sciq/train2/",
     test_name: str = "./sciq/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
-    n_test_docs: int = 200,
+    n_test_docs: int = 1000,
     weak_model_size: str = "gpt2",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
@@ -217,13 +218,15 @@ def main(
     strong_eval_batch_size = strong_model_config.eval_batch_size
 
     # Load dataset
+    dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs))
+    # Split the training dataset in half
+    train_dataset, test_ds = dataset["train"], dataset["test"]
 
-    train1_ds = load_from_disk(train1_name)
-    train2_ds = load_from_disk(train2_name)
-    test_ds = load_from_disk(test_name)
+    train1_ds = train_dataset #load_from_disk(train1_name)
+    train2_ds = train_dataset #load_from_disk(train2_name)
+    test_ds = test_ds #load_from_disk(test_name)
 
-    print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds))
-
+    print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds))
     def train_model(
         model_config: ModelConfig,
         train_ds: torch.utils.data.Dataset,
@@ -321,6 +324,9 @@ def main(
             res_dict,
             f,
         )
+    train1_ds.save_to_disk("./sciq/adaboost/train1_10000_{}/".format(0))
+    train2_ds.save_to_disk("./sciq/train2")
+    test_ds.save_to_disk("./sciq/test")
 
 if __name__ == "__main__":
     fire.Fire(main)
