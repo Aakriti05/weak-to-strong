@@ -145,6 +145,7 @@ def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
+    w2s_generalisation: bool = False,
     train1_name: str = "./sciq/adaboost/train1_10000_{}/".format(E),
     train2_name: str = "./sciq/train2/",
     test_name: str = "./sciq/test",
@@ -222,8 +223,24 @@ def main(
     # Split the training dataset in half
     train_dataset, test_ds = dataset["train"], dataset["test"]
 
-    train1_ds = train_dataset #load_from_disk(train1_name)
-    train2_ds = train_dataset #load_from_disk(train2_name)
+    if w2s_generalisation:
+        rating = 0 
+        with open("./data_rating/difficulties_sciq_10000_42.txt", "r") as f:
+            rating = f.readlines()
+        rating = [float(x.strip()) for x in rating]
+        # print(rating)
+
+        #take indices of the top 5000 values of the rating
+        indices = np.argsort(rating)[::-1][:5000]
+        print(rating[int(indices)])
+
+        train1_ds = train_dataset.select(indices)
+        train2_ds = train_dataset.select(np.argsort(rating)[::-1][5000:10000])
+
+    else:
+        train1_ds = train_dataset #load_from_disk(train1_name)
+        train2_ds = train_dataset #load_from_disk(train2_name)
+    
     test_ds = test_ds #load_from_disk(test_name)
 
     print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds))

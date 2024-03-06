@@ -174,6 +174,7 @@ def main(
     # Set to an absurdly high value so we don't do intermediate evals by default.
     eval_every: int = 100000000,
 ):
+    print("batch size:", batch_size, "E: ", E)
     # this is per device!
     if minibatch_size_per_device is None:
         minibatch_size_per_device = 1
@@ -322,4 +323,5 @@ def main(
         )
 
 if __name__ == "__main__":
-    fire.Fire(main)
+    #fire.Fire(main)
+    main()
