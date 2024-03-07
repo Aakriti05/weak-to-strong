@@ -39,80 +39,80 @@ MODEL_CONFIGS = [
         #     "fp32": not torch.cuda.is_bf16_supported(),
         # },
     ),
-    # ModelConfig(
-    #     name="gpt2-large",
-    #     default_lr=1e-5,
-    #     eval_batch_size=32,
-    #     custom_kwargs={
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="gpt2-xl",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     custom_kwargs={
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-1.8B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-7B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-14B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without bf16 support and many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="Qwen-72B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=1,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without bf16 support and many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    #     # This model is really big, save space by using adafactor.
-    #     # Note that even then it will take up ~60GB per GPU on an 8-GPU machine.
-    #     default_optimizer="adafactor",
-    # ),
+    ModelConfig(
+        name="gpt2-large",
+        default_lr=1e-5,
+        eval_batch_size=32,
+        custom_kwargs={
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="gpt2-xl",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        custom_kwargs={
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="qwen-1.8B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="qwen-7B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="qwen-14B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without bf16 support and many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="Qwen-72B",
+        default_lr=1e-5,
+        eval_batch_size=1,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without bf16 support and many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+        # This model is really big, save space by using adafactor.
+        # Note that even then it will take up ~60GB per GPU on an 8-GPU machine.
+        default_optimizer="adafactor",
+    ),
 ]
 
 MODELS_DICT: Dict[str, ModelConfig] = {
@@ -151,7 +151,7 @@ def main(
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
     n_test_docs: int = 200,
-    weak_model_size: str = "gpt2",
+    weak_model_size: str = "gpt2-medium",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
     strong_lr: Optional[float] = None,
@@ -168,7 +168,7 @@ def main(
     seed: int = 0,
     minibatch_size_per_device: Optional[int] = None,
     train_with_dropout: bool = False,
-    results_folder: str = "./results",
+    results_folder: str = "./results_gpt2medium",
     linear_probe: bool = False,
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
@@ -223,6 +223,7 @@ def main(
     train2_ds = load_from_disk(test_name)
     tokenizer = get_tokenizer(weak_model_config.name)
     train2_ds = tokenize_dataset(train2_ds, tokenizer, max_ctx, weight = None)
+    print("train2_ds: ", len(train2_ds))
 
     models = []
     rounds = 3
@@ -269,26 +270,32 @@ def main(
             model.eval()
             result = pickle.load(open(os.path.join(save_path, "results.pkl"), "rb"))
             e  = 1 - result["avg_acc_inference"]
-            print(math.log((1 - e) / e))
+            print(math.log((1 - e) / e), result["avg_acc_inference"])
             models.append((model, math.log((1 - e)/e)))
 
             # models.append((model, 1))
         ### predict
         io_device = model.device if hasattr(model, "device") else 0
         count = 0
+        model_acc = [0]*rounds
         for i in tqdm(train2_ds):
             probs = 0
             for m in range(E + 1):
                 model = models[m][0]
                 input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
                 labels = torch.tensor(i["soft_label"]).unsqueeze(0)
+                labels = np.argmax(labels, axis = -1)
                 logits = model(input_ids)
+                pred_individual_model = np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"), axis = -1)
+                if pred_individual_model == labels:
+                    model_acc[m] += 1
                 probs += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
             preds = np.argmax(probs, axis = -1)
-            labels = np.argmax(labels, axis = -1)
+            
             if preds == labels:
                 count += 1
-        print(count / 2000)
+        print("Final test results: ", count / 2000)
+        print("Individual test results: ", np.array(model_acc)/2000)
 
 
 if __name__ == "__main__":

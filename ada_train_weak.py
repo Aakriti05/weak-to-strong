@@ -152,7 +152,7 @@ def main(
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
     n_test_docs: int = 2000,
-    weak_model_size: str = "gpt2",
+    weak_model_size: str = "gpt2-medium",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
     strong_lr: Optional[float] = None,
@@ -238,10 +238,10 @@ def main(
         train2_ds = train_dataset.select(np.argsort(rating)[::-1][5000:10000])
 
     else:
-        train1_ds = load_from_disk(train1_name) #train_dataset #
-        train2_ds = load_from_disk(train2_name)
+        train1_ds = train_dataset #load_from_disk(train1_name)
+        train2_ds = train_dataset #load_from_disk(train2_name)
     
-    test_ds = load_from_disk(test_name)
+    test_ds = test_ds #load_from_disk(test_name)
 
     print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds))
     def train_model(

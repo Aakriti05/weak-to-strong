@@ -146,7 +146,7 @@ def main(
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
     n_test_docs: int = 200,
-    weak_model_size: str = "gpt2",
+    weak_model_size: str = "gpt2-medium",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
     strong_lr: Optional[float] = None,

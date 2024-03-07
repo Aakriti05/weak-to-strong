@@ -16,5 +16,3 @@ do
 done
 
 python ada_predict.py --weak_model_size gpt2-medium
-
-# python "ada_generate_weight.py 1 --weak_model_size gpt2-medium"
