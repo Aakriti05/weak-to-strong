@@ -13,7 +13,7 @@ import torch
 import weak_to_strong.logger as logger
 from weak_to_strong.common import get_tokenizer
 from weak_to_strong.datasets import load_dataset, tokenize_dataset
-# from datasets import load_from_disk
+from datasets import load_from_disk
 from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss, weight_xent_loss
 from weak_to_strong.train import ModelConfig, train_and_save_model
 
@@ -37,80 +37,80 @@ MODEL_CONFIGS = [
         #     "fp32": not torch.cuda.is_bf16_supported(),
         # },
     ),
-    # ModelConfig(
-    #     name="gpt2-large",
-    #     default_lr=1e-5,
-    #     eval_batch_size=32,
-    #     custom_kwargs={
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="gpt2-xl",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     custom_kwargs={
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-1.8B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-7B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-14B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without bf16 support and many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="Qwen/Qwen-72B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=1,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without bf16 support and many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    #     # This model is really big, save space by using adafactor.
-    #     # Note that even then it will take up ~60GB per GPU on an 8-GPU machine.
-    #     default_optimizer="adafactor",
-    # ),
+    ModelConfig(
+        name="gpt2-large",
+        default_lr=1e-5,
+        eval_batch_size=32,
+        custom_kwargs={
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="gpt2-xl",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        custom_kwargs={
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="qwen-1.8B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="qwen-7B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="qwen-14B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without bf16 support and many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="Qwen/Qwen-72B",
+        default_lr=1e-5,
+        eval_batch_size=1,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without bf16 support and many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+        # This model is really big, save space by using adafactor.
+        # Note that even then it will take up ~60GB per GPU on an 8-GPU machine.
+        default_optimizer="adafactor",
+    ),
 ]
 
 
@@ -146,12 +146,12 @@ def main(
     max_ctx: int = 1024,
     ds_name: str = "sciq",
     w2s_generalisation: bool = False,
-    train1_name: str = "./sciq/adaboost/train1_10000_{}/".format(E),
-    train2_name: str = "./sciq/train2/",
-    test_name: str = "./sciq/test",
+    train1_name: str = "./bak_sciq/adaboost/train1_10000_{}/".format(E),
+    train2_name: str = "./bak_sciq/train2/",
+    test_name: str = "./bak_sciq/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
-    n_test_docs: int = 1000,
+    n_test_docs: int = 2000,
     weak_model_size: str = "gpt2",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
@@ -238,10 +238,10 @@ def main(
         train2_ds = train_dataset.select(np.argsort(rating)[::-1][5000:10000])
 
     else:
-        train1_ds = train_dataset #load_from_disk(train1_name)
-        train2_ds = train_dataset #load_from_disk(train2_name)
+        train1_ds = load_from_disk(train1_name) #train_dataset #
+        train2_ds = load_from_disk(train2_name)
     
-    test_ds = test_ds #load_from_disk(test_name)
+    test_ds = load_from_disk(test_name)
 
     print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds))
     def train_model(
