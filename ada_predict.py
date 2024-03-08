@@ -165,10 +165,10 @@ def main(
     # defaults to gt_epochs
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
-    seed: int = 0,
+    seed: int = 42,
     minibatch_size_per_device: Optional[int] = None,
     train_with_dropout: bool = False,
-    results_folder: str = "./results_gpt2medium",
+    results_folder: str = "./results",
     linear_probe: bool = False,
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
@@ -284,18 +284,18 @@ def main(
                 model = models[m][0]
                 input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
                 labels = torch.tensor(i["soft_label"]).unsqueeze(0)
-                labels = np.argmax(labels, axis = -1)
                 logits = model(input_ids)
                 pred_individual_model = np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"), axis = -1)
-                if pred_individual_model == labels:
+                if pred_individual_model == np.argmax(labels, axis = -1):
                     model_acc[m] += 1
                 probs += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
             preds = np.argmax(probs, axis = -1)
+            labels = np.argmax(labels, axis = -1)
             
             if preds == labels:
                 count += 1
-        print("Final test results: ", count / 2000)
-        print("Individual test results: ", np.array(model_acc)/2000)
+        print("Final test results: ", count / len(train2_ds))
+        print("Individual test results: ", np.array(model_acc)/len(train2_ds))
 
 
 if __name__ == "__main__":

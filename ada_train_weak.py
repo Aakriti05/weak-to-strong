@@ -166,7 +166,7 @@ def main(
     # defaults to gt_epochs
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
-    seed: int = 0,
+    seed: int = 42,
     minibatch_size_per_device: Optional[int] = 8,
     train_with_dropout: bool = False,
     results_folder: str = "./results",
