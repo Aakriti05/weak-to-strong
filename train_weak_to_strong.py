@@ -200,22 +200,14 @@ def main(
         with open("./data_rating/difficulties_sciq_10000_42.txt", "r") as f:
             rating = f.readlines()
         sorted_rating = np.argsort([float(x.strip()) for x in rating])
-        print(sorted_rating[0:3])
-        print(sorted_rating[-3:])
-
-        indices = np.argsort(rating)
-        print(indices[0:3])
-        print(indices[-3:])
         train1_ds = train_dataset.select(sorted_rating[:len(sorted_rating)//2])
         train2_ds = train_dataset.select(sorted_rating[len(sorted_rating)//2:])
-        print(train_dataset.select([indices[-1]])[0])
         print("lowest score:")
         for n in range(3):
             print(train1_ds[n])
         print("highest score:")
         for n in range(3):
             print(train2_ds[-1-n])
-        return
     else:
         split_data = train_dataset.train_test_split(test_size=0.5, seed=seed)
         train1_ds, train2_ds = split_data["train"], split_data["test"]
