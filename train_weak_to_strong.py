@@ -119,9 +119,10 @@ def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
+    split_by_difficulty: bool = False,
     transfer_loss: Union[str, Sequence[str]] = "xent", #logconf",
-    n_docs: int = 20000, #10000,
-    n_test_docs: int = 10000, #200,
+    n_docs: int = 10000, #10000,
+    n_test_docs: int = 2000, #200,
     weak_model_size: str = "gpt2",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-large",
@@ -194,8 +195,30 @@ def main(
     # Split the training dataset in half
     train_dataset, test_ds = dataset["train"], dataset["test"]
 
-    split_data = train_dataset.train_test_split(test_size=0.5, seed=seed)
-    train1_ds, train2_ds = split_data["train"], split_data["test"]
+    if split_by_difficulty:
+        rating = 0 
+        with open("./data_rating/difficulties_sciq_10000_42.txt", "r") as f:
+            rating = f.readlines()
+        sorted_rating = np.argsort([float(x.strip()) for x in rating])
+        print(sorted_rating[0:3])
+        print(sorted_rating[-3:])
+
+        indices = np.argsort(rating)
+        print(indices[0:3])
+        print(indices[-3:])
+        train1_ds = train_dataset.select(sorted_rating[:len(sorted_rating)//2])
+        train2_ds = train_dataset.select(sorted_rating[len(sorted_rating)//2:])
+        print(train_dataset.select([indices[-1]])[0])
+        print("lowest score:")
+        for n in range(3):
+            print(train1_ds[n])
+        print("highest score:")
+        for n in range(3):
+            print(train2_ds[-1-n])
+        return
+    else:
+        split_data = train_dataset.train_test_split(test_size=0.5, seed=seed)
+        train1_ds, train2_ds = split_data["train"], split_data["test"]
     print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(train):", len(train_dataset), "len(test):", len(test_ds))
 
     def train_model(
