@@ -51,7 +51,10 @@ class TransformerWithHead(PreTrainedModel):
         input_lens = (input_ids != 0).sum(dim=-1)
         transformer_outputs = self.transformer(input_ids)
         hidden_states = torch.stack(
-            [transformer_outputs[0][i, input_lens[i] - 1, :] for i in range(len(input_lens))]
+            [
+                transformer_outputs[0][i, input_lens[i] - 1, :]
+                for i in range(len(input_lens))
+            ]
         )
         self.score.to(hidden_states.device)
         if self.linear_probe:

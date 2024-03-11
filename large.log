@@ -1,0 +1,81 @@
+Identity added: /nfshomes/anirudhs/.ssh/id_ecdsa (anirudhs@nexuscml00.umiacs.umd.edu)
+Identity added: /nfshomes/anirudhs/.ssh/id_ed25519 (anirudh.satheesh@gmail.com)
+Thu Mar 7 21:32:45 2024 +---------------------------------------------------------------------------------------+ | NVIDIA-SMI 535.129.03 Driver Version: 535.129.03 CUDA Version: 12.2 | |-----------------------------------------+----------------------+----------------------+ | GPU Name Persistence-M | Bus-Id Disp.A | Volatile Uncorr. ECC | | Fan Temp Perf Pwr:Usage/Cap | Memory-Usage | GPU-Util Compute M. | | | | MIG M. | |=========================================+======================+======================| | 0 NVIDIA RTX A6000 Off | 00000000:C1:00.0 Off | Off | | 30% 26C P8 19W / 300W | 2MiB / 49140MiB | 0% Default | | | | N/A | +-----------------------------------------+----------------------+----------------------+ +---------------------------------------------------------------------------------------+ | Processes: | | GPU GI CI PID Type Process name GPU Memory | | ID ID Usage | |=======================================================================================| | No running processes found | +---------------------------------------------------------------------------------------+
+/cmlscratch/anirudhs/miniconda/bin/python
+/cmlscratch/anirudhs/miniconda/envs/w2s/bin/python
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:441: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:309: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/var/spool/slurm/slurmd.spool/job2252209/slurm_script: line 9: 2695717 Killed                  python "./ada_train_weak.py" --w2s_generalisation False --weak_model_size gpt2-large
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:441: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:309: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+batch size: 32 E:  1
+Traceback (most recent call last):
+  File "/nfshomes/anirudhs/weak-to-strong/./ada_generate_weight.py", line 301, in <module>
+    main()
+  File "/nfshomes/anirudhs/weak-to-strong/./ada_generate_weight.py", line 223, in main
+    train1_ds = load_from_disk(train1_name)
+  File "/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/datasets/load.py", line 2663, in load_from_disk
+    raise FileNotFoundError(f"Directory {dataset_path} not found")
+FileNotFoundError: Directory ./sciq/adaboost/train1_10000_0/ not found
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:441: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:309: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+batch size: 32 E:  1
+Traceback (most recent call last):
+  File "/nfshomes/anirudhs/weak-to-strong/ada_train_weak_weight.py", line 341, in <module>
+    main()
+  File "/nfshomes/anirudhs/weak-to-strong/ada_train_weak_weight.py", line 230, in main
+    train1_ds = load_from_disk(train1_name)
+  File "/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/datasets/load.py", line 2663, in load_from_disk
+    raise FileNotFoundError(f"Directory {dataset_path} not found")
+FileNotFoundError: Directory ./sciq/adaboost/train1_10000_1/ not found
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:441: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:309: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+batch size: 32 E:  2
+Traceback (most recent call last):
+  File "/nfshomes/anirudhs/weak-to-strong/./ada_generate_weight.py", line 301, in <module>
+    main()
+  File "/nfshomes/anirudhs/weak-to-strong/./ada_generate_weight.py", line 223, in main
+    train1_ds = load_from_disk(train1_name)
+  File "/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/datasets/load.py", line 2663, in load_from_disk
+    raise FileNotFoundError(f"Directory {dataset_path} not found")
+FileNotFoundError: Directory ./sciq/adaboost/train1_10000_1/ not found
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:441: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:309: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+batch size: 32 E:  2
+Traceback (most recent call last):
+  File "/nfshomes/anirudhs/weak-to-strong/ada_train_weak_weight.py", line 341, in <module>
+    main()
+  File "/nfshomes/anirudhs/weak-to-strong/ada_train_weak_weight.py", line 230, in main
+    train1_ds = load_from_disk(train1_name)
+  File "/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/datasets/load.py", line 2663, in load_from_disk
+    raise FileNotFoundError(f"Directory {dataset_path} not found")
+FileNotFoundError: Directory ./sciq/adaboost/train1_10000_2/ not found
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:441: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/transformers/utils/generic.py:309: UserWarning: torch.utils._pytree._register_pytree_node is deprecated. Please use torch.utils._pytree.register_pytree_node instead.
+  _torch_pytree._register_pytree_node(
+Traceback (most recent call last):
+  File "/nfshomes/anirudhs/weak-to-strong/ada_predict.py", line 331, in <module>
+    fire.Fire(main)
+  File "/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/fire/core.py", line 141, in Fire
+    component_trace = _Fire(component, args, parsed_flag_args, context, name)
+  File "/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/fire/core.py", line 475, in _Fire
+    component, remaining_args = _CallAndUpdateTrace(
+  File "/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/fire/core.py", line 691, in _CallAndUpdateTrace
+    component = fn(*varargs, **kwargs)
+  File "/nfshomes/anirudhs/weak-to-strong/ada_predict.py", line 232, in main
+    train2_ds = load_from_disk(test_name)
+  File "/cmlscratch/anirudhs/miniconda/envs/w2s/lib/python3.9/site-packages/datasets/load.py", line 2663, in load_from_disk
+    raise FileNotFoundError(f"Directory {dataset_path} not found")
+FileNotFoundError: Directory ./sciq/test not found
+slurmstepd: error: Detected 1 oom_kill event in StepId=2252209.batch. Some of the step tasks have been OOM Killed.

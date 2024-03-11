@@ -9,8 +9,7 @@ from datasets import load_dataset, load_from_disk
 
 import weak_to_strong.logger as logger
 from weak_to_strong.common import get_tokenizer
-from weak_to_strong.datasets import (VALID_DATASETS, load_dataset,
-                                     tokenize_dataset)
+from weak_to_strong.datasets import VALID_DATASETS, load_dataset, tokenize_dataset
 from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss
 from weak_to_strong.train import ModelConfig, train_and_save_model
 
@@ -20,25 +19,25 @@ MODEL_CONFIGS = [
         name="gpt2",
         default_lr=5e-5,
         eval_batch_size=32,
-        custom_kwargs={
-            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
-        },
+        # custom_kwargs={
+        #     "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        # },
     ),
     ModelConfig(
         name="gpt2-medium",
         default_lr=5e-5,
         eval_batch_size=32,
-        custom_kwargs={
-            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
-        },
+        # custom_kwargs={
+        #     "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        # },
     ),
     ModelConfig(
         name="gpt2-large",
         default_lr=1e-5,
         eval_batch_size=32,
-        custom_kwargs={
-            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
-        },
+        # custom_kwargs={
+        #     "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        # },
     ),
     ModelConfig(
         name="gpt2-xl",
@@ -46,9 +45,9 @@ MODEL_CONFIGS = [
         eval_batch_size=2,
         gradient_checkpointing=True,
         model_parallel=True,
-        custom_kwargs={
-            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
-        },
+        # custom_kwargs={
+        #     "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        # },
     ),
     ModelConfig(
         name="Qwen/Qwen-1_8B",
@@ -58,7 +57,9 @@ MODEL_CONFIGS = [
         model_parallel=True,
         custom_kwargs={
             "trust_remote_code": True,
-            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+            "torch_dtype": (
+                torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+            ),
         },
     ),
     ModelConfig(
@@ -70,7 +71,9 @@ MODEL_CONFIGS = [
         # note: you will probably not be able to run this without many gpus
         custom_kwargs={
             "trust_remote_code": True,
-            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+            "torch_dtype": (
+                torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+            ),
         },
     ),
     ModelConfig(
@@ -82,7 +85,9 @@ MODEL_CONFIGS = [
         # note: you will probably not be able to run this without bf16 support and many gpus
         custom_kwargs={
             "trust_remote_code": True,
-            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+            "torch_dtype": (
+                torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+            ),
         },
     ),
     ModelConfig(
@@ -94,7 +99,9 @@ MODEL_CONFIGS = [
         # note: you will probably not be able to run this without bf16 support and many gpus
         custom_kwargs={
             "trust_remote_code": True,
-            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+            "torch_dtype": (
+                torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32
+            ),
         },
         # This model is really big, save space by using adafactor.
         # Note that even then it will take up ~60GB per GPU on an 8-GPU machine.
@@ -119,9 +126,9 @@ def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
-    transfer_loss: Union[str, Sequence[str]] = "xent", #logconf",
-    n_docs: int = 20000, #10000,
-    n_test_docs: int = 10000, #200,
+    transfer_loss: Union[str, Sequence[str]] = "xent",  # logconf",
+    n_docs: int = 20000,  # 10000,
+    n_test_docs: int = 10000,  # 200,
     weak_model_size: str = "gpt2",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-large",
@@ -150,7 +157,9 @@ def main(
     # this is per device!
     if minibatch_size_per_device is None:
         minibatch_size_per_device = 1
-    assert ds_name in VALID_DATASETS, f"Unknown dataset {ds_name} not in {VALID_DATASETS}"
+    assert (
+        ds_name in VALID_DATASETS
+    ), f"Unknown dataset {ds_name} not in {VALID_DATASETS}"
     if isinstance(transfer_loss, str):
         transfer_losses = transfer_loss.split(",")
     else:
@@ -189,14 +198,25 @@ def main(
     strong_eval_batch_size = strong_model_config.eval_batch_size
 
     # Load dataset
-    dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs)) #n_test_docs
+    dataset = load_dataset(
+        ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs)
+    )  # n_test_docs
 
     # Split the training dataset in half
     train_dataset, test_ds = dataset["train"], dataset["test"]
 
     split_data = train_dataset.train_test_split(test_size=0.5, seed=seed)
     train1_ds, train2_ds = split_data["train"], split_data["test"]
-    print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(train):", len(train_dataset), "len(test):", len(test_ds))
+    print(
+        "len(train1):",
+        len(train1_ds),
+        "len(train2):",
+        len(train2_ds),
+        "len(train):",
+        len(train_dataset),
+        "len(test):",
+        len(test_ds),
+    )
 
     def train_model(
         model_config: ModelConfig,
@@ -269,7 +289,9 @@ def main(
         test_ds,
         loss_type="xent",
         label="weak",
-        subpath=os.path.join(sweep_subfolder, "weak_model_gt", weak_model_size.replace("/", "_")),
+        subpath=os.path.join(
+            sweep_subfolder, "weak_model_gt", weak_model_size.replace("/", "_")
+        ),
         lr=weak_lr,
         eval_batch_size=weak_eval_batch_size,
         inference_ds=train2_ds,
@@ -286,7 +308,9 @@ def main(
         test_ds,
         loss_type="xent",
         label="strong",
-        subpath=os.path.join(sweep_subfolder, "strong_model_gt", strong_model_size.replace("/", "_")),
+        subpath=os.path.join(
+            sweep_subfolder, "strong_model_gt", strong_model_size.replace("/", "_")
+        ),
         lr=strong_lr,
         eval_batch_size=strong_eval_batch_size,
         epochs=gt_epochs,
@@ -306,7 +330,8 @@ def main(
             test_ds,
             loss_type=tloss,
             label="weak2strong",
-            subpath=os.path.join(sweep_subfolder,
+            subpath=os.path.join(
+                sweep_subfolder,
                 "strong_model_transfer",
                 f"{weak_model_size.replace('/', '_')}_{strong_model_size.replace('/', '_')}_{tloss}",
             ),
@@ -334,7 +359,8 @@ def main(
 
     with open(
         os.path.join(
-            results_folder, sweep_subfolder,
+            results_folder,
+            sweep_subfolder,
             f"{weak_model_size.replace('/', '_')}_{strong_model_size.replace('/', '_')}.results_summary.json",
         ),
         "w",

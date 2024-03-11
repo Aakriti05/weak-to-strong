@@ -2,6 +2,7 @@ import json
 import os
 import sys
 import random
+
 # os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
 
 from typing import Dict, List, Optional, Sequence, Union
@@ -9,14 +10,26 @@ from typing import Dict, List, Optional, Sequence, Union
 import fire
 import numpy as np
 import torch
+
 # import tiktoken
 import weak_to_strong.logger as logger
 from weak_to_strong.common import get_tokenizer
 from weak_to_strong.datasets import load_dataset, tokenize_dataset
 from datasets import load_from_disk
-from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss, weight_xent_loss
+from weak_to_strong.loss import (
+    logconf_loss_fn,
+    product_loss_fn,
+    xent_loss,
+    weight_xent_loss,
+)
 from weak_to_strong.train import ModelConfig, train_and_save_model
+from argparse import ArgumentParser
 
+parser = ArgumentParser()
+parser.add_argument("--weak_model_size", type=str)
+parser.add_argument("--w2s_generalisation", action="store_true")
+parser.add_argument("--bf16", action="store_true")
+args = parser.parse_args()
 
 MODEL_CONFIGS = [
     ModelConfig(
@@ -41,10 +54,10 @@ MODEL_CONFIGS = [
         name="gpt2-large",
         default_lr=1e-5,
         eval_batch_size=32,
-        custom_kwargs={
-            "bf16": torch.cuda.is_bf16_supported(),
-            "fp32": not torch.cuda.is_bf16_supported(),
-        },
+        # custom_kwargs={
+        #     "bf16": torch.cuda.is_bf16_supported(),
+        #     "fp32": not torch.cuda.is_bf16_supported(),
+        # },
     ),
     ModelConfig(
         name="gpt2-xl",
@@ -52,25 +65,25 @@ MODEL_CONFIGS = [
         eval_batch_size=2,
         gradient_checkpointing=True,
         model_parallel=True,
-        custom_kwargs={
-            "bf16": torch.cuda.is_bf16_supported(),
-            "fp32": not torch.cuda.is_bf16_supported(),
-        },
+        # custom_kwargs={
+        #     "bf16": torch.cuda.is_bf16_supported(),
+        #     "fp32": not torch.cuda.is_bf16_supported(),
+        # },
     ),
     ModelConfig(
-        name="qwen-1.8B",
+        name="Qwen/Qwen-1_8B",
         default_lr=1e-5,
         eval_batch_size=2,
         gradient_checkpointing=True,
         model_parallel=True,
         custom_kwargs={
             "trust_remote_code": True,
-            "bf16": torch.cuda.is_bf16_supported(),
-            "fp32": not torch.cuda.is_bf16_supported(),
+            "bf16": torch.cuda.is_bf16_supported() and args.bf16,
+            "fp32": not args.bf16,
         },
     ),
     ModelConfig(
-        name="qwen-7B",
+        name="Qwen/Qwen-7B",
         default_lr=1e-5,
         eval_batch_size=2,
         gradient_checkpointing=True,
@@ -83,7 +96,7 @@ MODEL_CONFIGS = [
         },
     ),
     ModelConfig(
-        name="qwen-14B",
+        name="Qwen/Qwen1.5-14B",
         default_lr=1e-5,
         eval_batch_size=2,
         gradient_checkpointing=True,
@@ -96,7 +109,7 @@ MODEL_CONFIGS = [
         },
     ),
     ModelConfig(
-        name="Qwen/Qwen-72B",
+        name="Qwen/Qwen1.5-72B",
         default_lr=1e-5,
         eval_batch_size=1,
         gradient_checkpointing=True,
@@ -122,33 +135,37 @@ loss_dict = {
     "logconf": logconf_loss_fn(),
     "product": product_loss_fn(),
     "xent": xent_loss(),
-    "weight_xent":weight_xent_loss(),
+    "weight_xent": weight_xent_loss(),
 }
 
 VALID_LOSSES: List[str] = list(loss_dict.keys())
 
 
 def seed_torch(seed=1029):
-	random.seed(seed)
-	os.environ['PYTHONHASHSEED'] = str(seed) # 为了禁止hash随机化，使得实验可复现
-	np.random.seed(seed)
-	torch.manual_seed(seed)
-	torch.cuda.manual_seed(seed)
-	torch.cuda.manual_seed_all(seed) # if you are using multi-GPU.
-	torch.backends.cudnn.benchmark = False
-	torch.backends.cudnn.deterministic = True
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)  # 为了禁止hash随机化，使得实验可复现
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if you are using multi-GPU.
+    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.deterministic = True
 
-E = 0 #int(sys.argv[1])
+
+E = 0  # int(sys.argv[1])
 seed_torch(E)
+
 
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
     w2s_generalisation: bool = False,
-    train1_name: str = "./bak_sciq/adaboost/train1_10000_{}/".format(E),
-    train2_name: str = "./bak_sciq/train2/",
-    test_name: str = "./bak_sciq/test",
+    train1_name: str = "/cmlscratch/anirudhs/weak_to_strong/bak_sciq/adaboost/train1_10000_{}/".format(
+        E
+    ),
+    train2_name: str = "/cmlscratch/anirudhs/weak_to_strong/bak_sciq/train2/",
+    test_name: str = "/cmlscratch/anirudhs/weak_to_strong/bak_sciq/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
     n_test_docs: int = 2000,
@@ -169,7 +186,7 @@ def main(
     seed: int = 0,
     minibatch_size_per_device: Optional[int] = 8,
     train_with_dropout: bool = False,
-    results_folder: str = "./results",
+    results_folder: str = "/cmlscratch/anirudhs/weak_to_strong/results",
     linear_probe: bool = False,
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
@@ -179,7 +196,7 @@ def main(
     # this is per device!
     if minibatch_size_per_device is None:
         minibatch_size_per_device = 1
- 
+    weak_model_size = args.weak_model_size
     if isinstance(transfer_loss, str):
         transfer_losses = transfer_loss.split(",")
     else:
@@ -219,18 +236,20 @@ def main(
     strong_eval_batch_size = strong_model_config.eval_batch_size
 
     # Load dataset
-    dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs))
+    dataset = load_dataset(
+        ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs)
+    )
     # Split the training dataset in half
     train_dataset, test_ds = dataset["train"], dataset["test"]
-
+    w2s_generalisation = args.w2s_generalisation
     if w2s_generalisation:
-        rating = 0 
+        rating = 0
         with open("./data_rating/difficulties_sciq_10000_42.txt", "r") as f:
             rating = f.readlines()
         rating = [float(x.strip()) for x in rating]
         # print(rating)
 
-        #take indices of the top 5000 values of the rating
+        # take indices of the top 5000 values of the rating
         indices = np.argsort(rating)[::-1][:5000]
         print(rating[int(indices)])
 
@@ -238,12 +257,20 @@ def main(
         train2_ds = train_dataset.select(np.argsort(rating)[::-1][5000:10000])
 
     else:
-        train1_ds = train_dataset #load_from_disk(train1_name)
-        train2_ds = train_dataset #load_from_disk(train2_name)
-    
-    test_ds = test_ds #load_from_disk(test_name)
+        train1_ds = train_dataset  # load_from_disk(train1_name)
+        train2_ds = train_dataset  # load_from_disk(train2_name)
 
-    print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds))
+    test_ds = test_ds  # load_from_disk(test_name)
+
+    print(
+        "len(train1):",
+        len(train1_ds),
+        "len(train2):",
+        len(train2_ds),
+        "len(test):",
+        len(test_ds),
+    )
+
     def train_model(
         model_config: ModelConfig,
         train_ds: torch.utils.data.Dataset,
@@ -281,10 +308,12 @@ def main(
         )
         # Tokenize datasets
         tokenizer = get_tokenizer(model_config.name)
-        train_ds = tokenize_dataset(train_ds, tokenizer, max_ctx, weight = E)
-        test_ds = tokenize_dataset(test_ds, tokenizer, max_ctx, weight= None)
+        train_ds = tokenize_dataset(train_ds, tokenizer, max_ctx, weight=E)
+        test_ds = tokenize_dataset(test_ds, tokenizer, max_ctx, weight=None)
         if inference_ds:
-            inference_ds = tokenize_dataset(inference_ds, tokenizer, max_ctx, weight=None)
+            inference_ds = tokenize_dataset(
+                inference_ds, tokenizer, max_ctx, weight=None
+            )
 
         loss_fn = loss_dict[loss_type]
 
@@ -306,7 +335,7 @@ def main(
             lr_schedule=lr_schedule,
             optimizer_name=optimizer_name,
             eval_every=eval_every,
-            is_weight=True
+            is_weight=True,
         )
 
     # Train the weak model on the first half of the training data
@@ -317,7 +346,9 @@ def main(
         test_ds,
         loss_type="weight_xent",
         label="weak",
-        subpath=os.path.join("weak_model_gt/10000", weak_model_size.replace("/", "_") + str(E)),
+        subpath=os.path.join(
+            "weak_model_gt/10000", weak_model_size.replace("/", "_") + str(E)
+        ),
         lr=weak_lr,
         eval_batch_size=weak_eval_batch_size,
         inference_ds=train2_ds,
@@ -341,9 +372,12 @@ def main(
             res_dict,
             f,
         )
-    train1_ds.save_to_disk("./sciq/adaboost/train1_10000_{}/".format(0))
-    train2_ds.save_to_disk("./sciq/train2")
-    test_ds.save_to_disk("./sciq/test")
+    train1_ds.save_to_disk(
+        "/cmlscratch/anirudhs/weak_to_strong/sciq/adaboost/train1_10000_{}/".format(0)
+    )
+    train2_ds.save_to_disk("/cmlscratch/anirudhs/weak_to_strong/sciq/train2")
+    test_ds.save_to_disk("/cmlscratch/anirudhs/weak_to_strong/sciq/test")
+
 
 if __name__ == "__main__":
     fire.Fire(main)

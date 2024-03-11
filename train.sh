@@ -1,18 +1,28 @@
 #!/bin/bash
-#
-source /cmlscratch/agrawal5/bashrc_copy.sh
+#SBATCH --time=3-00:00:00
+#SBATCH --partition=scavenger
+#SBATCH --qos=scavenger
+#SBATCH --account=scavenger
+#SBATCH --mem=128gb 
+#SBATCH --ntasks=4
+#SBATCH --gres=gpu:rtxa6000:3
+#SBATCH --output=train_qwen_7B.log
+
+source /nfshomes/anirudhs/.bashrc
 echo `nvidia-smi`
 echo `which python`
 conda activate w2s
 echo `which python`
-
-python "./ada_train_weak.py" --w2s_generalisation False --weak_model_size gpt2-medium
+model="gpt2-large"
+python "./ada_train_weak.py" --weak_model_size $model
 for Epoch in 1 2
 do
     for filename in "./ada_generate_weight.py" "ada_train_weak_weight.py"
     do
-        python $filename $Epoch --weak_model_size gpt2-medium
+        echo $filename
+        echo $Epoch
+        python $filename --E $Epoch --weak_model_size $model
     done
 done
 
-python ada_predict.py --weak_model_size gpt2-medium
+python ada_predict.py --weak_model_size $model

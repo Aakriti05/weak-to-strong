@@ -1,6 +1,7 @@
 import json
 import sys
 import os
+
 # os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
 import pickle
 import time
@@ -16,14 +17,26 @@ from transformers.modeling_utils import load_sharded_checkpoint
 import fire
 import numpy as np
 import torch
+
 # import tiktoken
 import weak_to_strong.logger as logger
 from weak_to_strong.common import clear_mem, get_tokenizer
 from weak_to_strong.datasets import tokenize_dataset
-from datasets import load_dataset,load_from_disk
-from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss, weight_xent_loss
+from datasets import load_dataset, load_from_disk
+from weak_to_strong.loss import (
+    logconf_loss_fn,
+    product_loss_fn,
+    xent_loss,
+    weight_xent_loss,
+)
 from weak_to_strong.train import ModelConfig, train_and_save_model
+from argparse import ArgumentParser
 
+parser = ArgumentParser()
+parser.add_argument("--E", type=int)
+parser.add_argument("--weak_model_size", type=str)
+parser.add_argument("--bf16", action="store_true")
+args = parser.parse_args()
 
 MODEL_CONFIGS = [
     ModelConfig(
@@ -44,51 +57,51 @@ MODEL_CONFIGS = [
         #     "fp32": not torch.cuda.is_bf16_supported(),
         # },
     ),
-    # ModelConfig(
-    #     name="gpt2-large",
-    #     default_lr=1e-5,
-    #     eval_batch_size=32,
-    #     custom_kwargs={
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="gpt2-xl",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     custom_kwargs={
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-1.8B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-7B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
+    ModelConfig(
+        name="gpt2-large",
+        default_lr=1e-5,
+        eval_batch_size=32,
+        # custom_kwargs={
+        #     "bf16": torch.cuda.is_bf16_supported(),
+        #     "fp32": not torch.cuda.is_bf16_supported(),
+        # },
+    ),
+    ModelConfig(
+        name="gpt2-xl",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        #     custom_kwargs={
+        #         "bf16": torch.cuda.is_bf16_supported(),
+        #         "fp32": not torch.cuda.is_bf16_supported(),
+        #     },
+    ),
+    ModelConfig(
+        name="Qwen/Qwen-1_8B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported() and args.bf16,
+            "fp32": not args.bf16,
+        },
+    ),
+    ModelConfig(
+        name="Qwen/Qwen-7B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
     # ModelConfig(
     #     name="qwen-14B/",
     #     default_lr=1e-5,
@@ -129,19 +142,22 @@ loss_dict = {
     "logconf": logconf_loss_fn(),
     "product": product_loss_fn(),
     "xent": xent_loss(),
-    "weight_xent":weight_xent_loss(),
+    "weight_xent": weight_xent_loss(),
 }
 
 VALID_LOSSES: List[str] = list(loss_dict.keys())
 
-E = int(sys.argv[1])
-# E = 1
+
+E = args.E
+
 
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
-    train1_name: str = "./sciq/adaboost/train1_10000_{}/".format(E-1),
-    train2_name: str = "./sciq/validation/",
+    train1_name: str = "/cmlscratch/anirudhs/weak_to_strong/sciq/adaboost/train1_10000_{}/".format(
+        E - 1
+    ),
+    train2_name: str = "/cmlscratch/anirudhs/weak_to_strong/sciq/validation/",
     test_name: str = "/data2/kongchao/superalignment/myweak2strong2/myweak2strong/sciq/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
@@ -163,18 +179,19 @@ def main(
     seed: int = 0,
     minibatch_size_per_device: Optional[int] = 8,
     train_with_dropout: bool = False,
-    results_folder: str = "./results",
+    results_folder: str = "/cmlscratch/anirudhs/weak_to_strong/results",
     linear_probe: bool = False,
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
     # Set to an absurdly high value so we don't do intermediate evals by default.
     eval_every: int = 100000000,
 ):
+    weak_model_size = args.weak_model_size
     print("batch size:", batch_size, "E: ", E)
     # this is per device!
     if minibatch_size_per_device is None:
         minibatch_size_per_device = 1
- 
+
     if isinstance(transfer_loss, str):
         transfer_losses = transfer_loss.split(",")
     else:
@@ -211,19 +228,19 @@ def main(
     weak_eval_batch_size = weak_model_config.eval_batch_size
     strong_eval_batch_size = strong_model_config.eval_batch_size
 
-
-
     # Load dataset
     train1_ds = load_from_disk(train1_name)
 
     tokenizer = get_tokenizer(weak_model_config.name)
-    train_ds = tokenize_dataset(train1_ds, tokenizer, max_ctx, weight = True)
-
+    train_ds = tokenize_dataset(train1_ds, tokenizer, max_ctx, weight=True)
 
     ### model prepare
-    subpath=os.path.join("weak_model_gt/10000", weak_model_size.replace("/", "_")) + str(E - 1)
+    subpath = os.path.join(
+        "weak_model_gt/10000", weak_model_size.replace("/", "_")
+    ) + str(E - 1)
     save_path = os.path.join(results_folder, subpath)
     custom_kwargs = weak_model_config.custom_kwargs or {}
+
     def maybe_load_model(model):
         if os.path.exists(os.path.join(save_path, "results.pkl")) and not force_retrain:
             print("loading from", save_path)
@@ -242,8 +259,9 @@ def main(
                 custom_kwargs["state_dict"] = state_dict
             return True
         return False
+
     model = TransformerWithHead.from_pretrained(
-    weak_model_config.name, num_labels=2, linear_probe=linear_probe, **custom_kwargs
+        weak_model_config.name, num_labels=2, linear_probe=linear_probe, **custom_kwargs
     ).to("cuda")
     already_trained = maybe_load_model(model)
     if already_trained:
@@ -251,38 +269,46 @@ def main(
     # data parallel:  currently not supported with model parallel
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model, output_device=0)
-        minibatch_size = min(minibatch_size_per_device * torch.cuda.device_count(), batch_size)
+        minibatch_size = min(
+            minibatch_size_per_device * torch.cuda.device_count(), batch_size
+        )
         print(
             "Using",
             torch.cuda.device_count(),
             "GPUs, setting minibatch_size to",
             minibatch_size,
         )
-    
 
     ### predict
     io_device = model.device if hasattr(model, "device") else 0
     model.eval()
     result = pickle.load(open(os.path.join(save_path, "results.pkl"), "rb"))
-    e  = 1 - result["avg_acc_inference"]
+    e = 1 - result["avg_acc_inference"]
+
     def small_process(i):
         with torch.no_grad():
             input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
-            labels = torch.tensor(i["soft_label"]).unsqueeze(0)
+            labels = torch.tensor(i["soft_label"]).unsqueeze(0).to(dtype=torch.float32)
             logits = model(input_ids)
-            probs = torch.nn.functional.softmax(logits, dim = -1).to("cpu")
+            probs = (
+                torch.nn.functional.softmax(logits, dim=-1)
+                .to("cpu")
+                .to(dtype=torch.float32)
+            )
 
-            preds = np.argmax(probs, axis = -1)
-            labels = np.argmax(labels, axis = -1)
+            preds = np.argmax(probs, axis=-1)
+            labels = np.argmax(labels, axis=-1)
             if preds == labels:
-                i["weight"] = (i["weight"] / (2 * (1 - e)))
+                i["weight"] = i["weight"] / (2 * (1 - e))
             else:
-                i["weight"] = (i["weight"] / (2 * e))
+                i["weight"] = i["weight"] / (2 * e)
             # print(i["weight"])
             return i
-    train_ds = train_ds.map(small_process)
-    train_ds.save_to_disk("./sciq/adaboost/train1_10000_{}/".format(E))
 
+    train_ds = train_ds.map(small_process)
+    train_ds.save_to_disk(
+        "/cmlscratch/anirudhs/weak_to_strong/sciq/adaboost/train1_10000_{}/".format(E)
+    )
 
 
 if __name__ == "__main__":
