@@ -28,6 +28,7 @@ def eval_model_acc(model: nn.Module, ds: datasets.Dataset, eval_batch_size: int 
     """
 
     model.eval()
+    
 
     with torch.no_grad():
         results = []
@@ -38,6 +39,10 @@ def eval_model_acc(model: nn.Module, ds: datasets.Dataset, eval_batch_size: int 
                 [torch.tensor(ex) for ex in batch["input_ids"]], batch_first=True
             ).to(model.device if hasattr(model, "device") else "cpu")
             labels = batch["soft_label"]
+            if "weight" in batch:
+                weights = batch["weight"]
+            else:
+                weights = [1] * len(batch["input_ids"])
             # run forward pass
             raw_logits = model(input_ids)
 
@@ -55,16 +60,20 @@ def eval_model_acc(model: nn.Module, ds: datasets.Dataset, eval_batch_size: int 
                         gt_label=label,
                         hard_label=pred,
                         acc=label == pred,
+                        weight_err = weight * (label != pred),
                         logits=logit,
                         soft_label=prob,
                     )
-                    for input_id, txt, label, pred, prob, logit in zip(
-                        batch["input_ids"], batch["txt"], labels, preds, probs, logits
+                    for input_id, txt, label, pred, prob, logit, weight in zip(
+                        batch["input_ids"], batch["txt"], labels, preds, probs, logits, weights
                     )
                 ]
             )
         accs = [r["acc"] for r in results]
         print("Accuracy:", np.mean(accs), "+/-", np.std(accs) / np.sqrt(len(accs)))
+        accs = [r["weight_err"] for r in results]
+        print("Weights Error:", np.sum(accs), "+/-", np.std(accs) / np.sqrt(len(accs)))
+
 
         return datasets.Dataset.from_list(results)
 
@@ -81,6 +90,10 @@ def eval_model_logits(model: nn.Module, ds: datasets.Dataset, eval_batch_size: i
                 [torch.tensor(ex) for ex in batch["input_ids"]], batch_first=True
             ).to(model.device if hasattr(model, "device") else "cpu")
             labels = batch["soft_label"]
+            if "weight" in batch:
+                weights = batch["weight"]
+            else:
+                weights = [1] * len(batch["input_ids"])
             # run forward pass
             raw_logits = model(input_ids)
             raw_logits = torch.clamp(raw_logits, 0, 1)
@@ -101,15 +114,18 @@ def eval_model_logits(model: nn.Module, ds: datasets.Dataset, eval_batch_size: i
                         gt_label=label,
                         hard_label=pred,
                         acc=label == pred,
+                        weight_err = weight * (label != pred),
                         logits=logit,
                         soft_label=prob,
                     )
-                    for input_id, txt, label, pred, prob, logit in zip(
-                        batch["input_ids"], batch["txt"], labels, preds, probs, logits
+                    for input_id, txt, label, pred, prob, logit, weight in zip(
+                        batch["input_ids"], batch["txt"], labels, preds, probs, logits, weights
                     )
                 ]
             )
         accs = [r["acc"] for r in results]
         print("Accuracy:", np.mean(accs), "+/-", np.std(accs) / np.sqrt(len(accs)))
+        accs = [r["weight_err"] for r in results]
+        print("Weights Error:", np.sum(accs), "+/-", np.std(accs) / np.sqrt(len(accs)))
 
         return datasets.Dataset.from_list(results)

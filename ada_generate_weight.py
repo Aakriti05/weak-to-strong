@@ -140,7 +140,8 @@ E = int(sys.argv[1])
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
-    train1_name: str = "./sciq/adaboost/train1_10000_{}/".format(E-1),
+    ds_name: str = "sciq",
+    train1_name: str = "/adaboost/train1_10000_{}/".format(E-1),
     train2_name: str = "./sciq/validation/",
     test_name: str = "/data2/kongchao/superalignment/myweak2strong2/myweak2strong/sciq/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
@@ -161,7 +162,7 @@ def main(
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
     seed: int = 42,
-    minibatch_size_per_device: Optional[int] = 8,
+    minibatch_size_per_device: Optional[int] = 32,
     train_with_dropout: bool = False,
     results_folder: str = "./results",
     linear_probe: bool = False,
@@ -214,7 +215,7 @@ def main(
 
 
     # Load dataset
-    train1_ds = load_from_disk(train1_name)
+    train1_ds = load_from_disk("./" + ds_name + train1_name)
 
     tokenizer = get_tokenizer(weak_model_config.name)
     train_ds = tokenize_dataset(train1_ds, tokenizer, max_ctx, weight = True)
@@ -264,7 +265,11 @@ def main(
     io_device = model.device if hasattr(model, "device") else 0
     model.eval()
     result = pickle.load(open(os.path.join(save_path, "results.pkl"), "rb"))
-    e  = 1 - result["avg_acc_inference"]
+    e = result["weighted_error_inference"] 
+    alpha = 0.5 * np.log((1 - e) / e)
+    z = 2 * np.sqrt(e * (1 - e))
+    print("Weighted Error: ", e, "alpha: ", alpha, "z: ", z)
+    # e  = 1 - result["avg_acc_inference"]
     def small_process(i):
         with torch.no_grad():
             input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
@@ -275,13 +280,14 @@ def main(
             preds = np.argmax(probs, axis = -1)
             labels = np.argmax(labels, axis = -1)
             if preds == labels:
-                i["weight"] = (i["weight"] / (2 * (1 - e)))
+                # i["weight"] = (i["weight"] / (2 * (1 - e)))
+                i["weight"] = ( 1/z ) * (i["weight"] * np.exp(-alpha))
             else:
-                i["weight"] = (i["weight"] / (2 * e))
+                i["weight"] = ( 1/z ) * (i["weight"] * np.exp(alpha))
             # print(i["weight"])
             return i
     train_ds = train_ds.map(small_process)
-    train_ds.save_to_disk("./sciq/adaboost/train1_10000_{}/".format(E))
+    train_ds.save_to_disk("./" + ds_name + "/adaboost/train1_10000_{}/".format(E))
 
 
 

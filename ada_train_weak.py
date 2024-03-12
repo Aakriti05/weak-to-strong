@@ -9,6 +9,8 @@ from typing import Dict, List, Optional, Sequence, Union
 import fire
 import numpy as np
 import torch
+from numpy.random import choice
+from datasets import Dataset
 # import tiktoken
 import weak_to_strong.logger as logger
 from weak_to_strong.common import get_tokenizer
@@ -145,6 +147,7 @@ def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
+    weighted_sampling: bool = False,
     w2s_generalisation: bool = False,
     train1_name: str = "./bak_sciq/adaboost/train1_10000_{}/".format(E),
     train2_name: str = "./bak_sciq/train2/",
@@ -156,6 +159,7 @@ def main(
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
     strong_lr: Optional[float] = None,
+    loss_: str = "weight_xent",
     # Defaults to strong_lr
     transfer_lr: Optional[float] = None,
     # Optims default to default_optimizer in the model definitions
@@ -167,7 +171,7 @@ def main(
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
     seed: int = 42,
-    minibatch_size_per_device: Optional[int] = 8,
+    minibatch_size_per_device: Optional[int] = 32,
     train_with_dropout: bool = False,
     results_folder: str = "./results",
     linear_probe: bool = False,
@@ -222,13 +226,12 @@ def main(
     dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs))
     # Split the training dataset in half
     train_dataset, test_ds = dataset["train"], dataset["test"]
-
+    
     if w2s_generalisation:
         rating = 0 
         with open("./data_rating/difficulties_sciq_10000_42.txt", "r") as f:
             rating = f.readlines()
         rating = [float(x.strip()) for x in rating]
-        # print(rating)
 
         #take indices of the top 5000 values of the rating
         indices = np.argsort(rating)[::-1][:5000]
@@ -244,6 +247,13 @@ def main(
     test_ds = test_ds #load_from_disk(test_name)
 
     print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds))
+
+    # Tokenize datasets
+    tokenizer = get_tokenizer(weak_model_config.name)
+    train1_ds = tokenize_dataset(train1_ds, tokenizer, max_ctx, weight = 1/len(train1_ds))
+    test_ds = tokenize_dataset(test_ds, tokenizer, max_ctx, weight= None)
+    train2_ds = tokenize_dataset(train2_ds, tokenizer, max_ctx, weight=1/len(train1_ds))
+
     def train_model(
         model_config: ModelConfig,
         train_ds: torch.utils.data.Dataset,
@@ -279,13 +289,7 @@ def main(
             log_prefix=log_prefix,
             optimizer_name=optimizer_name,
         )
-        # Tokenize datasets
-        tokenizer = get_tokenizer(model_config.name)
-        train_ds = tokenize_dataset(train_ds, tokenizer, max_ctx, weight = E)
-        test_ds = tokenize_dataset(test_ds, tokenizer, max_ctx, weight= None)
-        if inference_ds:
-            inference_ds = tokenize_dataset(inference_ds, tokenizer, max_ctx, weight=None)
-
+        
         loss_fn = loss_dict[loss_type]
 
         return train_and_save_model(
@@ -315,12 +319,12 @@ def main(
         weak_model_config,
         train1_ds,
         test_ds,
-        loss_type="weight_xent",
+        loss_type= loss_,
         label="weak",
         subpath=os.path.join("weak_model_gt/10000", weak_model_size.replace("/", "_") + str(E)),
         lr=weak_lr,
         eval_batch_size=weak_eval_batch_size,
-        inference_ds=train2_ds,
+        inference_ds=train1_ds, #train2_ds,
         epochs=gt_epochs,
         linear_probe=linear_probe,
         optimizer_name=weak_optim,
@@ -341,9 +345,11 @@ def main(
             res_dict,
             f,
         )
-    train1_ds.save_to_disk("./sciq/adaboost/train1_10000_{}/".format(0))
-    train2_ds.save_to_disk("./sciq/train2")
-    test_ds.save_to_disk("./sciq/test")
+
+    train1_ds.save_to_disk("./" + ds_name + "/adaboost/train1_10000_{}/".format(0))
+    train2_ds.save_to_disk("./" + ds_name + "/train2")
+    test_ds.save_to_disk("./" + ds_name + "/test")
+
 
 if __name__ == "__main__":
     fire.Fire(main)

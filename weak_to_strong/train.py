@@ -324,6 +324,9 @@ def train_and_save_model(
                     "avg_acc_inference": float(
                         np.mean([r["acc"] for r in inference_results] if inference_results else [])
                     ),
+                    "weighted_error_inference": float(
+                        np.sum([r["weight_err"] for r in inference_results] if inference_results else [])
+                    ),
                     "test_results": test_results,
                     "inference_results": inference_results if inference_results else [],
                 },

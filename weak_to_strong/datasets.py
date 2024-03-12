@@ -103,7 +103,7 @@ def tokenize_dataset(
             if "weight" not in res.keys():
             # if weight == 0:
                 return dict(
-                    weight = 1,
+                    weight = weight,
                     input_ids =toks["input_ids"] 
                 )
             else:
@@ -111,6 +111,7 @@ def tokenize_dataset(
                     weight = res["weight"],
                     input_ids =toks["input_ids"]
                 )
+    
     ds = raw_ds.map(process_function, batched=False).filter(lambda x: len(x["input_ids"]) < max_ctx)
     return ds
 

@@ -145,9 +145,10 @@ E = 0
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
-    train1_name: str = "./sciq/adaboost/train1_10000_{}/".format(E),
-    train2_name: str = "./sciq/train2/",
-    test_name: str = "./sciq/test",
+    ds_name: str = "sciq",
+    train1_name: str = "/adaboost/train1_10000_{}/".format(E),
+    train2_name: str = "/train2/",
+    test_name: str = "/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
     n_test_docs: int = 200,
@@ -161,7 +162,7 @@ def main(
     weak_optim: Optional[str] = None,
     strong_optim: Optional[str] = None,
     transfer_optim: Optional[str] = None,
-    gt_epochs: int = 2,
+    gt_epochs: int = 1,
     # defaults to gt_epochs
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
@@ -220,7 +221,7 @@ def main(
 
     # Load dataset
     # train2_ds = load_from_disk(test_name)
-    train2_ds = load_from_disk(test_name)
+    train2_ds = load_from_disk("./" + ds_name + test_name)
     tokenizer = get_tokenizer(weak_model_config.name)
     train2_ds = tokenize_dataset(train2_ds, tokenizer, max_ctx, weight = None)
     print("train2_ds: ", len(train2_ds))
@@ -268,28 +269,44 @@ def main(
                     minibatch_size,
                 )
             model.eval()
+            print(save_path)
             result = pickle.load(open(os.path.join(save_path, "results.pkl"), "rb"))
-            e  = 1 - result["avg_acc_inference"]
-            print(math.log((1 - e) / e), result["avg_acc_inference"])
-            models.append((model, math.log((1 - e)/e)))
+            # e  = 1 - result["avg_acc_inference"]
+            e = result["weighted_error_inference"] 
+            print("Weighted Error: ", result["weighted_error_inference"] , "Uniform Accuray: ", result["avg_acc_inference"])
+            print("Alpha: ", 0.5*math.log((1 - (e))/(e)))
+            models.append((model, 0.5*math.log((1 - (e)) / (e))))
 
             # models.append((model, 1))
         ### predict
         io_device = model.device if hasattr(model, "device") else 0
         count = 0
         model_acc = [0]*rounds
+
+        discrete = False
+
         for i in tqdm(train2_ds):
-            probs = 0
-            for m in range(E + 1):
+            preds = 0
+            for m in range(E+1):
                 model = models[m][0]
                 input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
                 labels = torch.tensor(i["soft_label"]).unsqueeze(0)
                 logits = model(input_ids)
-                pred_individual_model = np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"), axis = -1)
-                if pred_individual_model == np.argmax(labels, axis = -1):
+                predictions = np.argmax(logits.to("cpu"), axis = -1)
+                predictions[predictions == 0] = -1
+                
+                if np.argmax(logits.to("cpu"), axis = -1)  == np.argmax(labels, axis = -1):
                     model_acc[m] += 1
-                probs += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
-            preds = np.argmax(probs, axis = -1)
+                if discrete:
+                    preds += models[m][1] * predictions
+                else:
+                    preds += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
+
+            if discrete:
+                preds[preds >= 0] = 1
+                preds[preds < 0] = 0
+            else:
+                preds = np.argmax(preds, axis = -1)
             labels = np.argmax(labels, axis = -1)
             
             if preds == labels:
