@@ -23,6 +23,14 @@ from weak_to_strong.datasets import tokenize_dataset
 from datasets import load_dataset,load_from_disk
 from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss, weight_xent_loss
 from weak_to_strong.train import ModelConfig, train_and_save_model
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument("--E", type=int, default=1)
+parser.add_argument("--weak_model_size", type=str, default="gpt2-medium")
+parser.add_argument("--ds_name", type=str, default="sciq")
+parser.add_argument("--weighted_sampling", type=bool, default=False)
+args = parser.parse_args()
 
 
 MODEL_CONFIGS = [
@@ -44,80 +52,80 @@ MODEL_CONFIGS = [
         #     "fp32": not torch.cuda.is_bf16_supported(),
         # },
     ),
-    # ModelConfig(
-    #     name="gpt2-large",
-    #     default_lr=1e-5,
-    #     eval_batch_size=32,
-    #     custom_kwargs={
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="gpt2-xl",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     custom_kwargs={
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-1.8B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-7B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="qwen-14B/",
-    #     default_lr=1e-5,
-    #     eval_batch_size=2,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without bf16 support and many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    # ),
-    # ModelConfig(
-    #     name="Qwen/Qwen-72B",
-    #     default_lr=1e-5,
-    #     eval_batch_size=1,
-    #     gradient_checkpointing=True,
-    #     model_parallel=True,
-    #     # note: you will probably not be able to run this without bf16 support and many gpus
-    #     custom_kwargs={
-    #         "trust_remote_code": True,
-    #         "bf16": torch.cuda.is_bf16_supported(),
-    #         "fp32": not torch.cuda.is_bf16_supported(),
-    #     },
-    #     # This model is really big, save space by using adafactor.
-    #     # Note that even then it will take up ~60GB per GPU on an 8-GPU machine.
-    #     default_optimizer="adafactor",
-    # ),
+    ModelConfig(
+        name="gpt2-large",
+        default_lr=1e-5,
+        eval_batch_size=32,
+        # custom_kwargs={
+        #     "bf16": torch.cuda.is_bf16_supported(),
+        #     "fp32": not torch.cuda.is_bf16_supported(),
+        # },
+    ),
+    ModelConfig(
+        name="gpt2-xl",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # custom_kwargs={
+        #     "bf16": torch.cuda.is_bf16_supported(),
+        #     "fp32": not torch.cuda.is_bf16_supported(),
+        # },
+    ),
+    ModelConfig(
+        name="qwen-1.8B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="qwen-7B",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="qwen-14B/",
+        default_lr=1e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without bf16 support and many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+    ),
+    ModelConfig(
+        name="Qwen/Qwen-72B",
+        default_lr=1e-5,
+        eval_batch_size=1,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        # note: you will probably not be able to run this without bf16 support and many gpus
+        custom_kwargs={
+            "trust_remote_code": True,
+            "bf16": torch.cuda.is_bf16_supported(),
+            "fp32": not torch.cuda.is_bf16_supported(),
+        },
+        # This model is really big, save space by using adafactor.
+        # Note that even then it will take up ~60GB per GPU on an 8-GPU machine.
+        default_optimizer="adafactor",
+    ),
 ]
 
 
@@ -134,20 +142,20 @@ loss_dict = {
 
 VALID_LOSSES: List[str] = list(loss_dict.keys())
 
-E = int(sys.argv[1])
-# E = 1
+E = args.E
 
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
+    weighted_sampling: bool = args.weighted_sampling,
     train1_name: str = "/adaboost/train1_10000_{}/".format(E-1),
     train2_name: str = "./sciq/validation/",
     test_name: str = "/data2/kongchao/superalignment/myweak2strong2/myweak2strong/sciq/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
     n_test_docs: int = 200,
-    weak_model_size: str = "gpt2-medium",
+    weak_model_size: str = args.weak_model_size,
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
     strong_lr: Optional[float] = None,

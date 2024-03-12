@@ -6,15 +6,21 @@ echo `which python`
 conda activate w2s
 echo `which python`
 
-python "./ada_train_weak.py" --w2s_generalisation False --weak_model_size gpt2
+model="gpt2"
+ds_name="sciq"
+weighted_sampling=False
+
+python "./ada_train_weak.py" --w2s_generalisation False --weighted_sampling $weighted_sampling --weak_model_size $model --ds_name $ds_name
 for Epoch in 1 2
 do
     for filename in "./ada_generate_weight.py" "ada_train_weak_weight.py"
     do
-        python $filename $Epoch --weak_model_size gpt2
+        echo $filename
+        echo $Epoch
+        python $filename --E $Epoch --weak_model_size $model --ds_name $ds_name
     done
 done
 
-python ada_predict.py --weak_model_size gpt2
+python ada_predict.py --weak_model_size $model --ds_name $ds_name
 
 rm -r ./sciq
