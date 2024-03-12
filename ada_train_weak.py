@@ -235,7 +235,6 @@ def main(
 
         #take indices of the top 5000 values of the rating
         indices = np.argsort(rating)[::-1][:5000]
-        print(rating[int(indices)])
 
         train1_ds = train_dataset.select(indices)
         train2_ds = train_dataset.select(np.argsort(rating)[::-1][5000:10000])

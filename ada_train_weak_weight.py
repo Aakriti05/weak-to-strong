@@ -24,6 +24,7 @@ parser.add_argument("--E", type=int, default=1)
 parser.add_argument("--weak_model_size", type=str, default="gpt2-medium")
 parser.add_argument("--ds_name", type=str, default="sciq")
 parser.add_argument("--weighted_sampling", type=bool, default=False)
+parser.add_argument("--gt_epochs", type=int, default=2)
 args = parser.parse_args()
 
 MODEL_CONFIGS = [
@@ -170,7 +171,7 @@ def main(
     weak_optim: Optional[str] = None,
     strong_optim: Optional[str] = None,
     transfer_optim: Optional[str] = None,
-    gt_epochs: int = 2,
+    gt_epochs: int = args.gt_epochs,
     # defaults to gt_epochs
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
@@ -229,13 +230,17 @@ def main(
     # Load dataset
 
     train1_ds = load_from_disk("./" + ds_name + train1_name)
-    train2_ds = load_from_disk("./" + ds_name + train2_name)
+    train2_ds = load_from_disk("./" + ds_name + train1_name)
     test_ds = load_from_disk("./" + ds_name + test_name)
 
     if weighted_sampling:
-        boost = choice(np.arange(len(train1_ds)), size=len(train1_ds), replace=True, p=train1_ds['weight'])
+        # weight_sum = np.sum(train1_ds["weight"])
+        # prob = train1_ds["weight"]/weight_sum
+        prob = train1_ds["weight"]
+
+        boost = choice(np.arange(len(train1_ds)), size=len(train1_ds), replace=True, p=prob)
         loss_ = "xent"
-        train1_ds = train_dataset.select(boost)
+        train1_ds = train1_ds.select(boost)
 
 
     
@@ -317,7 +322,7 @@ def main(
         subpath=os.path.join("weak_model_gt/10000", weak_model_size.replace("/", "_") + str(E)),
         lr=weak_lr,
         eval_batch_size=weak_eval_batch_size,
-        inference_ds=train1_ds, #train2_ds,
+        inference_ds=train2_ds,
         epochs=gt_epochs,
         linear_probe=linear_probe,
         optimizer_name=weak_optim,

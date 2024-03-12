@@ -30,6 +30,8 @@ parser.add_argument("--E", type=int, default=1)
 parser.add_argument("--weak_model_size", type=str, default="gpt2-medium")
 parser.add_argument("--ds_name", type=str, default="sciq")
 parser.add_argument("--weighted_sampling", type=bool, default=False)
+parser.add_argument("--gt_epochs", type=int, default=2)
+
 args = parser.parse_args()
 
 
@@ -165,7 +167,7 @@ def main(
     weak_optim: Optional[str] = None,
     strong_optim: Optional[str] = None,
     transfer_optim: Optional[str] = None,
-    gt_epochs: int = 2,
+    gt_epochs: int = args.gt_epochs,
     # defaults to gt_epochs
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
@@ -288,13 +290,18 @@ def main(
             preds = np.argmax(probs, axis = -1)
             labels = np.argmax(labels, axis = -1)
             if preds == labels:
-                # i["weight"] = (i["weight"] / (2 * (1 - e)))
-                i["weight"] = ( 1/z ) * (i["weight"] * np.exp(-alpha))
+                i["weight"] = (i["weight"] / (2 * (1 - e)))
             else:
-                i["weight"] = ( 1/z ) * (i["weight"] * np.exp(alpha))
-            # print(i["weight"])
+                i["weight"] = (i["weight"] / e)
             return i
     train_ds = train_ds.map(small_process)
+    weight_sum = np.sum(train_ds["weight"])
+
+    def small_process2(i):
+        with torch.no_grad():
+            i["weight"] = i["weight"]/weight_sum
+            return i
+    train_ds = train_ds.map(small_process2)
     train_ds.save_to_disk("./" + ds_name + "/adaboost/train1_10000_{}/".format(E))
 
 
