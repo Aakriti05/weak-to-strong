@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 from typing import Dict, List, Optional, Sequence, Union
 
 import fire
@@ -113,6 +114,20 @@ loss_dict = {
 }
 
 VALID_LOSSES: List[str] = list(loss_dict.keys())
+
+
+def seed_torch(seed=1029):
+	random.seed(seed)
+	os.environ['PYTHONHASHSEED'] = str(seed) # 为了禁止hash随机化，使得实验可复现
+	np.random.seed(seed)
+	torch.manual_seed(seed)
+	torch.cuda.manual_seed(seed)
+	torch.cuda.manual_seed_all(seed) # if you are using multi-GPU.
+	torch.backends.cudnn.benchmark = False
+	torch.backends.cudnn.deterministic = True
+
+E = int(sys.argv[1])
+seed_torch(E)
 
 
 def main(
