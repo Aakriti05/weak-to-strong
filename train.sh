@@ -5,8 +5,8 @@
 #SBATCH --account=scavenger
 #SBATCH --mem=128gb 
 #SBATCH --ntasks=4
-#SBATCH --gres=gpu:rtxa6000:3
-#SBATCH --output=train_qwen_7B.log
+#SBATCH --gres=gpu:rtxa6000:1
+#SBATCH --output=train_gpt2_large.log
 
 source /nfshomes/anirudhs/.bashrc
 echo `nvidia-smi`
