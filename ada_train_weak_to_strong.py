@@ -2,22 +2,22 @@ import json
 import os
 import sys
 import random
-# os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
+
 
 from typing import Dict, List, Optional, Sequence, Union
 
 import fire
 import numpy as np
 import torch
-from datasets import Dataset
-# import tiktoken
+from datasets import load_from_disk
+
 import weak_to_strong.logger as logger
 from weak_to_strong.common import get_tokenizer
-from weak_to_strong.datasets import load_dataset, tokenize_dataset
-from datasets import load_from_disk
-from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss, weight_xent_loss
+from weak_to_strong.datasets import (VALID_DATASETS, load_dataset, tokenize_dataset)
+from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss
 from weak_to_strong.train import ModelConfig, train_and_save_model
 
+# NOTE learning rates are not particularly tuned, work somewhat reasonably at train batch size 32
 MODEL_CONFIGS = [
     ModelConfig(
         name="gpt2",
@@ -108,15 +108,14 @@ MODELS_DICT: Dict[str, ModelConfig] = {
     model_config.name: model_config for model_config in MODEL_CONFIGS
 }
 
+
 loss_dict = {
     "logconf": logconf_loss_fn(),
     "product": product_loss_fn(),
     "xent": xent_loss(),
-    "weight_xent":weight_xent_loss(),
 }
 
 VALID_LOSSES: List[str] = list(loss_dict.keys())
-
 
 def seed_torch(seed=1029):
 	random.seed(seed)
@@ -128,26 +127,23 @@ def seed_torch(seed=1029):
 	torch.backends.cudnn.benchmark = False
 	torch.backends.cudnn.deterministic = True
 
-E = 0 #int(sys.argv[1])
-seed_torch(E)
+# E = int(sys.argv[1])
+seed_torch(109)
+
 
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
-    weighted_sampling: bool = False,
     split_by_difficulty: bool = True,
-    train1_name: str = "./bak_sciq/adaboost/train1_10000_{}/".format(E),
-    train2_name: str = "./bak_sciq/train2/",
-    test_name: str = "./bak_sciq/test",
-    transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
-    n_docs: int = 10000,
-    n_test_docs: int = 2000,
-    weak_model_size: str = "gpt2-medium",
+    adaboost:bool = True,
+    transfer_loss: Union[str, Sequence[str]] = "xent", #logconf",
+    n_docs: int = 10000, #10000,
+    n_test_docs: int = 2000, #200,
+    weak_model_size: str = "gpt2",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
     strong_lr: Optional[float] = None,
-    loss_: str = "weight_xent",
     # Defaults to strong_lr
     transfer_lr: Optional[float] = None,
     # Optims default to default_optimizer in the model definitions
@@ -162,6 +158,7 @@ def main(
     minibatch_size_per_device: Optional[int] = 32,
     train_with_dropout: bool = False,
     results_folder: str = "./results",
+    sweep_subfolder: str = "./w2s_default",
     linear_probe: bool = False,
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
@@ -172,7 +169,7 @@ def main(
     # this is per device!
     if minibatch_size_per_device is None:
         minibatch_size_per_device = 1
- 
+    assert ds_name in VALID_DATASETS, f"Unknown dataset {ds_name} not in {VALID_DATASETS}"
     if isinstance(transfer_loss, str):
         transfer_losses = transfer_loss.split(",")
     else:
@@ -210,56 +207,22 @@ def main(
     weak_eval_batch_size = weak_model_config.eval_batch_size
     strong_eval_batch_size = strong_model_config.eval_batch_size
 
-    # Load dataset
-    dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs))
-    # Split the training dataset in half
-    train_dataset, test_ds = dataset["train"], dataset["test"]
 
-    if weighted_sampling:
-        loss_ = "xent"
-    
-    
     if split_by_difficulty:
-        rating = 0 
-        with open("./data_rating/difficulties_sciq_10000_42.txt", "r") as f:
-            rating = f.readlines()
-        sorted_rating = np.argsort([float(x.strip()) for x in rating])
-        train1_ds = train_dataset.select(sorted_rating[:len(sorted_rating)//2])
-        train2_ds = train_dataset.select(sorted_rating[len(sorted_rating)//2:])
-        print("lowest score:")
-        for n in range(3):
-            print(train1_ds[n])
-        print("highest score:")
-        for n in range(3):
-            print(train2_ds[-1-n])
-
-        # if w2s_generalisation:
-        #     rating = 0 
-        #     with open("./data_rating/difficulties_sciq_10000_42.txt", "r") as f:
-        #         rating = f.readlines()
-        #     rating = [float(x.strip()) for x in rating]
-
-        #     #take indices of the top 5000 values of the rating
-        #     indices = np.argsort(rating)[::-1][:5000]
-
-        #     train1_ds = train_dataset.select(indices)
-        #     train2_ds = train_dataset.select(np.argsort(rating)[::-1][5000:10000])
+        train1_ds = load_from_disk(ds_name + "/adaboost/train1_10000_0")
+        train2_ds = load_from_disk(ds_name + "/train2") #"./dataset/" + 
+        test_ds = load_from_disk(ds_name + "/test") #"./dataset/" +
 
     else:
-        train1_ds = train_dataset #load_from_disk(train1_name)
-        train2_ds = train_dataset #load_from_disk(train2_name)
-    
-    test_ds = test_ds #load_from_disk(test_name)
+        # Load dataset
+        dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs)) #n_test_docs
+        # Split the training dataset in half
+        train_dataset, test_ds = dataset["train"], dataset["test"]
+        split_data = train_dataset.train_test_split(test_size=0.5, seed=seed)
+        train1_ds, train2_ds = split_data["train"], split_data["test"]
 
     print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds))
 
-    # Tokenize datasets
-    tokenizer = get_tokenizer(weak_model_config.name)
-    train1_ds = tokenize_dataset(train1_ds, tokenizer, max_ctx, weight = 1/len(train1_ds))
-    test_ds = tokenize_dataset(test_ds, tokenizer, max_ctx, weight= None)
-    train2_ds = tokenize_dataset(train2_ds, tokenizer, max_ctx, weight=1/len(train2_ds))
-
-    
     def train_model(
         model_config: ModelConfig,
         train_ds: torch.utils.data.Dataset,
@@ -278,9 +241,9 @@ def main(
         save_path = os.path.join(results_folder, subpath)
         linprobe_str = "_linprobe" if linear_probe else ""
         logger.configure(
-            name="{log_prefix}{label}_{base_model_name}_{train1_name}_{loss_type}_{optimizer_name}_{lr}_{lr_schedule}{linprobe_str}_{datetime_now}",
+            name="{log_prefix}{label}_{base_model_name}_{ds_name}_{loss_type}_{optimizer_name}_{lr}_{lr_schedule}{linprobe_str}_{datetime_now}",
             label=label,
-            ds_name=train1_name,
+            ds_name=ds_name,
             truncation_max_len=n_docs or "none",
             loss_type=loss_type,
             lr=lr,
@@ -295,7 +258,13 @@ def main(
             log_prefix=log_prefix,
             optimizer_name=optimizer_name,
         )
-        
+        # Tokenize datasets
+        tokenizer = get_tokenizer(model_config.name)
+        train_ds = tokenize_dataset(train_ds, tokenizer, max_ctx)
+        test_ds = tokenize_dataset(test_ds, tokenizer, max_ctx)
+        if inference_ds:
+            inference_ds = tokenize_dataset(inference_ds, tokenizer, max_ctx)
+
         loss_fn = loss_dict[loss_type]
         return train_and_save_model(
             model_config,
@@ -315,34 +284,116 @@ def main(
             lr_schedule=lr_schedule,
             optimizer_name=optimizer_name,
             eval_every=eval_every,
-            is_weight=True
         )
 
     # Train the weak model on the first half of the training data
     print(f"Training weak model, size {weak_model_size}")
-    weak_test_results, weak_ds = train_model(
-        weak_model_config,
-        train1_ds,
+
+    
+    if adaboost:
+        weak_ds = load_from_disk(ds_name + "/adaboost/weak_data/".format()) #"./dataset/" + 
+
+        weak_accuracy = 1
+    
+    else:
+        weak_test_results, weak_ds = train_model(
+            weak_model_config,
+            train1_ds,
+            test_ds,
+            loss_type="xent",
+            label="weak",
+            subpath=os.path.join(sweep_subfolder, "weak_model_gt", weak_model_size.replace("/", "_")),
+            lr=weak_lr,
+            eval_batch_size=weak_eval_batch_size,
+            inference_ds=train2_ds,
+            epochs=gt_epochs,
+            linear_probe=linear_probe,
+            optimizer_name=weak_optim,
+        )
+
+    print("weak_ds:", weak_ds[0])
+    print("weak_ds:", weak_ds[1])
+
+    def small_process2(i):
+        with torch.no_grad():
+            i["acc"] = (i["hard_label"] == i["gt_label"])
+            return i
+    weak_ds = weak_ds.map(small_process2)
+
+    ac = weak_ds["acc"]
+    accuracy = np.mean(ac)
+    print("weak accuracy:", accuracy)
+
+    # print("train1_ds:", train1_ds[0])
+    # print("train1_ds:", train1_ds[1])
+
+
+    # print("train2_ds:", train2_ds[0])
+    # print("train2_ds:", train2_ds[1])
+
+
+
+    # Train the strong model on the second half of the training data
+    print(f"Training strong model, size {strong_model_size}")
+    strong_test_results, _ = train_model(
+        strong_model_config,
+        train2_ds,
         test_ds,
-        loss_type= loss_,
-        label="weak",
-        subpath=os.path.join("weak_model_gt/10000", weak_model_size.replace("/", "_") + str(E)),
-        lr=weak_lr,
-        eval_batch_size=weak_eval_batch_size,
-        inference_ds=train1_ds, #train2_ds,
+        loss_type="xent",
+        label="strong",
+        subpath=os.path.join(sweep_subfolder, "strong_model_gt", strong_model_size.replace("/", "_")),
+        lr=strong_lr,
+        eval_batch_size=strong_eval_batch_size,
         epochs=gt_epochs,
         linear_probe=linear_probe,
-        optimizer_name=weak_optim,
+        optimizer_name=strong_optim,
     )
-    weak_acc = np.mean([x["acc"] for x in weak_test_results])
+
+    # Train the strong model on the second half of the training data with labels generated by the weak model
+    all_transfer_test_results = {}
+    for tloss in transfer_losses:
+        print(
+            f"Training transfer model, size {strong_model_size} on labels from {weak_model_size}, with loss {tloss}"
+        )
+        transfer_test_results, _ = train_model(
+            strong_model_config,
+            weak_ds,
+            test_ds,
+            loss_type=tloss,
+            label="weak2strong",
+            subpath=os.path.join(sweep_subfolder,
+                "strong_model_transfer",
+                f"{weak_model_size.replace('/', '_')}_{strong_model_size.replace('/', '_')}_{tloss}",
+            ),
+            lr=transfer_lr,
+            eval_batch_size=strong_eval_batch_size,
+            epochs=transfer_epochs,
+            linear_probe=linear_probe,
+            optimizer_name=transfer_optim,
+        )
+        all_transfer_test_results[tloss] = transfer_test_results
+        del transfer_test_results
+
+    if adaboost:
+        weak_acc = weak_accuracy
+    else:
+        weak_acc = np.mean([x["acc"] for x in weak_test_results])
+    strong_acc = np.mean([x["acc"] for x in strong_test_results])
     res_dict = {
         "weak_acc": weak_acc,
+        "strong_acc": strong_acc,
     }
     print("weak acc:", weak_acc)
+    print("strong acc:", strong_acc)
+    for tloss, transfer_test_results in all_transfer_test_results.items():
+        transfer_acc = np.mean([x["acc"] for x in transfer_test_results])
+        res_dict[f"transfer_acc_{tloss}"] = transfer_acc
+        print(f"transfer acc ({tloss}):", transfer_acc)
+
     with open(
         os.path.join(
-            results_folder,
-            f"10000_{weak_model_size.replace('/', '_')}{E}.results_summary.json",
+            results_folder, sweep_subfolder,
+            f"{weak_model_size.replace('/', '_')}_{strong_model_size.replace('/', '_')}.results_summary.json",
         ),
         "w",
     ) as f:
@@ -351,10 +402,7 @@ def main(
             f,
         )
 
-    train1_ds.save_to_disk("./" + ds_name + "/adaboost/train1_10000_{}/".format(0))
-    train2_ds.save_to_disk("./" + ds_name + "/train2")
-    test_ds.save_to_disk("./" + ds_name + "/test")
 
-
+# python train_weak_to_strong.py --batch_size 32 --max_ctx 512 --ds_name "sciq" --transfer_loss "logconf" --n_docs 1000 --n_test_docs 100 --weak_model_size "gpt2-medium" --strong_model_size "gpt2-large" --seed 42
 if __name__ == "__main__":
     fire.Fire(main)

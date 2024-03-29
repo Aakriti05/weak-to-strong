@@ -2,6 +2,7 @@ import json
 import os
 import pickle
 import random
+import datasets
 # os.environ['CUDA_VISIBLE_DEVICES'] = '1,2'
 
 from typing import Dict, List, Optional, Sequence, Union
@@ -25,19 +26,17 @@ MODEL_CONFIGS = [
         name="gpt2",
         default_lr=5e-5,
         eval_batch_size=32,
-        # custom_kwargs={
-        #     "bf16": torch.cuda.is_bf16_supported(),
-        #     "fp32": not torch.cuda.is_bf16_supported(),
-        # },
+        custom_kwargs={
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        },
     ),
     ModelConfig(
         name="gpt2-medium",
         default_lr=5e-5,
         eval_batch_size=32,
-        # custom_kwargs={
-        #     "bf16": torch.cuda.is_bf16_supported(),
-        #     "fp32": not torch.cuda.is_bf16_supported(),
-        # },
+        custom_kwargs={
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        },
     ),
     ModelConfig(
         name="gpt2-large",
@@ -145,15 +144,16 @@ E = 0
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
-    ds_name: str = "sciq",
+    ds_name: str = "dataset/sciq_gpt2_epoch3_t19_weightedloss",
     w2s_generalisation: bool = False,
+    rounds: int = 26,
     train1_name: str = "/adaboost/train1_10000_{}/".format(E),
     train2_name: str = "/train2/",
     test_name: str = "/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
     n_test_docs: int = 200,
-    weak_model_size: str = "gpt2-medium",
+    weak_model_size: str = "gpt2",
     weak_lr: Optional[float] = None,
     strong_model_size: str = "gpt2-medium",
     strong_lr: Optional[float] = None,
@@ -170,7 +170,7 @@ def main(
     seed: int = 42,
     minibatch_size_per_device: Optional[int] = None,
     train_with_dropout: bool = False,
-    results_folder: str = "./results",
+    results_folder: str = ".//results_final/results_gpt2_epoch3_t19_weightedloss/", #"./results",
     linear_probe: bool = False,
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
@@ -220,8 +220,9 @@ def main(
 
     # Load dataset
     if w2s_generalisation:
-        test_ds = load_from_disk("./" + ds_name + train2_name)
+        test_ds = load_from_disk("./" + ds_name + test_name)
         train2_ds = load_from_disk("./" + ds_name + train1_name)
+        train1_ds = load_from_disk("./" + ds_name + train2_name)
 
     else:
         test_ds = load_from_disk("./" + ds_name + test_name)
@@ -234,7 +235,7 @@ def main(
     print("train2_ds: ", len(train2_ds), "test_ds: ", len(test_ds))
 
     models = []
-    rounds = 3
+    rounds = rounds
     with torch.no_grad():
         ### model prepare
         for E in range(0, rounds):
@@ -287,78 +288,143 @@ def main(
             # models.append((model, 1))
         ### predict
         io_device = model.device if hasattr(model, "device") else 0
-        count = 0
+        count = [0]*rounds
         model_acc = [0]*rounds
-
         discrete = False
+        print("I am descrete: ", discrete)
 
         print("Test Results: ")
+        
         for i in tqdm(test_ds):
-            probs = 0
-            for m in range(E):
-                model = models[m][0]
-                input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
-                labels = torch.tensor(i["soft_label"]).unsqueeze(0)
-                logits = model(input_ids)
-                predictions = np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"))
-                predictions[predictions == 0] = -1
-                
-                if np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"))  == np.argmax(labels, axis = -1):
-                    model_acc[m] += 1
-                if discrete:
-                    probs += models[m][1] * predictions
-                else:
-                    probs += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
+            if discrete: probs = np.array([0.0]*(E+1))
+            else: probs = torch.zeros(E+1, 2)
+            prob = 0
 
-            if discrete:
-                preds = probs
-                preds[probs >= 0] = 1
-                preds[probs < 0] = 0
-            else:
-                preds = np.argmax(probs, axis = -1)
-            labels = np.argmax(labels, axis = -1)
-            
-            if preds == labels:
-                count += 1
-        print("Final test results: ", count / len(test_ds))
-        print("Individual test results: ", np.array(model_acc)/len(test_ds))
-
-        discrete = True
-        print("Train Results: ")
-        count = 0
-        model_acc = [0]*rounds
-        for i in tqdm(train2_ds):
-            probs = 0
             for m in range(E+1):
                 model = models[m][0]
                 input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
                 labels = torch.tensor(i["soft_label"]).unsqueeze(0)
                 logits = model(input_ids)
-                predictions = np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"))
-                predictions[predictions == 0] = -1
+                predictions = torch.argmax(logits.to("cpu"), dim = -1)
+                predictions = torch.where(predictions == 0, -1, predictions)
                 
-                if np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"))  == np.argmax(labels, axis = -1):
+                if torch.argmax(logits.to("cpu"), dim = -1)  == torch.argmax(labels, dim = -1):  #np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"))
                     model_acc[m] += 1
-                if discrete:
-                    probs += models[m][1] * predictions
+                
+                if discrete:  prob += models[m][1] * predictions
                 else:
-                    probs += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
+                    prob += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
+                probs[m] = prob
 
-            if discrete:
-                preds = probs
-                preds[probs >= 0] = 1
-                preds[probs < 0] = 0
-            else:
-                preds = np.argmax(probs, axis = -1)
-            labels = np.argmax(labels, axis = -1)
+            if discrete:  preds = np.where(probs >= 0, 1, 0)
+            else:  preds = torch.argmax(probs, dim=-1)
+
+            labels = torch.argmax(labels, dim=-1)
             
-            if preds == labels:
-                count += 1
-        print("Final train results: ", count / len(train2_ds))
+            
+            count = [count[m] + 1 if preds[m] == labels else count[m] for m in range(rounds)]
+            
+        print("Final test results: ", np.array(count) / len(test_ds))
+        print("Individual test results: ", np.array(model_acc)/len(test_ds))
+
+        
+
+        discrete = False
+        print("Train Results: ")
+        results = []
+        count = [0]*rounds
+        model_acc = [0]*rounds
+        for i in tqdm(train2_ds):
+            if discrete: probs = np.array([0.0]*(E+1))
+            else: probs = torch.zeros(E+1, 2)
+            prob = 0
+
+            for m in range(E+1):
+                model = models[m][0]
+                input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
+                labels = torch.tensor(i["soft_label"]).unsqueeze(0)
+                logits = model(input_ids)
+                predictions = torch.argmax(logits.to("cpu"), dim = -1)
+                predictions = torch.where(predictions == 0, -1, predictions)
+                
+                if torch.argmax(logits.to("cpu"), dim = -1)  == torch.argmax(labels, dim = -1):  #np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"))
+                    model_acc[m] += 1
+                
+                if discrete:  prob += models[m][1] * predictions
+                else:
+                    prob += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
+                probs[m] = prob
+
+            if discrete:  preds = np.where(probs >= 0, 1, 0)
+            else:  preds = torch.argmax(probs, dim=-1)
+
+            labels = torch.argmax(labels, dim = -1)
+
+            count = [count[m] + 1 if preds[m] == labels else count[m] for m in range(rounds)]
+            
+        print("Final train results: ", np.array(count) / len(train2_ds))
         print("Individual train results: ", np.array(model_acc)/len(train2_ds))
+
+
+        if w2s_generalisation:
+            discrete = False
+            print("Train strong Results: ")
+            results = []
+            count = [0]*rounds
+            model_acc = [0]*rounds
+            for i in tqdm(train1_ds):
+                if discrete: probs = np.array([0.0]*(E+1))
+                else: probs = torch.zeros(E+1, 2)
+                prob = 0
+
+                for m in range(E+1):
+                    model = models[m][0]
+                    input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
+                    labels = torch.tensor(i["soft_label"]).unsqueeze(0)
+                    logits = model(input_ids)
+                    predictions = torch.argmax(logits.to("cpu"), dim = -1)
+                    predictions = torch.where(predictions == 0, -1, predictions)
+                    
+                    if torch.argmax(logits.to("cpu"), dim = -1)  == torch.argmax(labels, dim = -1):  #np.argmax(torch.nn.functional.softmax(logits, dim = -1).to("cpu"))
+                        model_acc[m] += 1
+                    
+                    if discrete:  prob += models[m][1] * predictions
+                    else:
+                        prob += models[m][1] * torch.nn.functional.softmax(logits, dim = -1).to("cpu")
+                    probs[m] = prob
+
+                if discrete:  preds = np.where(probs >= 0, 1, 0)
+                else:  preds = torch.argmax(probs, dim=-1)
+
+                labels = torch.argmax(labels, dim = -1)
+
+                results.extend(
+                    [
+                        dict(
+                            txt=i["txt"],
+                            input_ids=i["input_ids"], 
+                            gt_label=labels,
+                            acc=labels == preds[rounds-1],
+                            hard_label=preds[rounds-1],
+                            soft_label= probs[rounds-1]/sum(probs[rounds-1]), #(prob/sum(prob) >= .5)*1.0,
+                        )
+                    ]
+                )
+
+                count = [count[m] + 1 if preds[m] == labels else count[m] for m in range(rounds)]
+                
+            print("Final strong train results: ", np.array(count) / len(train2_ds))
+            print("Individual strong train results: ", np.array(model_acc)/len(train2_ds))
+
+            weak_test_ds = datasets.Dataset.from_list(results)
+            weak_test_ds.save_to_disk("./" + ds_name + "/adaboost/weak_data/".format())
+
+
+            # print(np.mean(weak_test_ds["acc"]))
 
         
 
 
 if __name__ == "__main__":
     fire.Fire(main)
+    # main()

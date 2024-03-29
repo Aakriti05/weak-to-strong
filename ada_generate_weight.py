@@ -40,19 +40,17 @@ MODEL_CONFIGS = [
         name="gpt2",
         default_lr=5e-5,
         eval_batch_size=32,
-        # custom_kwargs={
-        #     "bf16": torch.cuda.is_bf16_supported(),
-        #     "fp32": not torch.cuda.is_bf16_supported(),
-        # },
+        custom_kwargs={
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        },
     ),
     ModelConfig(
         name="gpt2-medium",
         default_lr=5e-5,
         eval_batch_size=32,
-        # custom_kwargs={
-        #     "bf16": torch.cuda.is_bf16_supported(),
-        #     "fp32": not torch.cuda.is_bf16_supported(),
-        # },
+        custom_kwargs={
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        },
     ),
     ModelConfig(
         name="gpt2-large",
@@ -286,16 +284,20 @@ def main(
             labels = torch.tensor(i["soft_label"]).unsqueeze(0)
             logits = model(input_ids)
             probs = torch.nn.functional.softmax(logits, dim = -1).to("cpu")
-
-            preds = np.argmax(probs, axis = -1)
-            labels = np.argmax(labels, axis = -1)
+            
+            preds = torch.argmax(probs)
+            labels = torch.argmax(labels)
+            # print( "probs: ", probs, "preds: ", preds, "labels: ", labels, "weight: ", i["weight"])
             if preds == labels:
                 i["weight"] = (i["weight"] / (2 * (1 - e)))
             else:
                 i["weight"] = (i["weight"] / e)
+            # print("weight after: ", i["weight"])
+            
             return i
     train_ds = train_ds.map(small_process)
-    weight_sum = np.sum(train_ds["weight"])
+    weight_sum = sum(train_ds["weight"])
+    print("weight_sum: ", weight_sum)
 
     def small_process2(i):
         with torch.no_grad():

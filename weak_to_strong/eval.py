@@ -62,7 +62,7 @@ def eval_model_acc(model: nn.Module, ds: datasets.Dataset, eval_batch_size: int 
                         acc=label == pred,
                         weight_err = weight * (label != pred),
                         logits=logit,
-                        soft_label=prob,
+                        soft_label=(prob/np.sum(prob, axis=-1) >= .5)*1.0,
                     )
                     for input_id, txt, label, pred, prob, logit, weight in zip(
                         batch["input_ids"], batch["txt"], labels, preds, probs, logits, weights
@@ -116,7 +116,7 @@ def eval_model_logits(model: nn.Module, ds: datasets.Dataset, eval_batch_size: i
                         acc=label == pred,
                         weight_err = weight * (label != pred),
                         logits=logit,
-                        soft_label=prob,
+                        soft_label=(prob/np.sum(prob, axis=-1) >= .5)*1.0,
                     )
                     for input_id, txt, label, pred, prob, logit, weight in zip(
                         batch["input_ids"], batch["txt"], labels, preds, probs, logits, weights
