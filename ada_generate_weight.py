@@ -258,7 +258,12 @@ def main(
     ).to("cuda")
     already_trained = maybe_load_model(model)
     if already_trained:
-        model.load_state_dict(torch.load(os.path.join(save_path, "pytorch_model.bin")))
+        cp = torch.load(os.path.join(save_path, "pytorch_model.bin"))
+        new_cp = {}
+        for key in cp.keys():
+            new_key = key[len('module.'):] if key.startswith('module.') else key
+            new_cp[new_key] = cp[key]
+        model.load_state_dict(new_cp)
     # data parallel:  currently not supported with model parallel
     if torch.cuda.device_count() > 1:
         model = torch.nn.DataParallel(model, output_device=0)
@@ -292,10 +297,11 @@ def main(
             if preds == labels:
                 i["weight"] = (i["weight"] / (2 * (1 - e)))
             else:
-                i["weight"] = (i["weight"] / e)
+                i["weight"] = (i["weight"] / (2 * e))
             return i
     train_ds = train_ds.map(small_process)
     weight_sum = np.sum(train_ds["weight"])
+    print(f"weight sum: {weight_sum}")
 
     def small_process2(i):
         with torch.no_grad():

@@ -20,6 +20,12 @@ from weak_to_strong.train import ModelConfig, train_and_save_model
 from weak_to_strong.model import TransformerWithHead
 from transformers.modeling_utils import load_sharded_checkpoint
 from tqdm import tqdm
+from argparse import ArgumentParser
+
+parser = ArgumentParser()
+parser.add_argument("--E", type=int, default=1)
+args = parser.parse_args()
+
 MODEL_CONFIGS = [
     ModelConfig(
         name="gpt2",
@@ -140,14 +146,14 @@ def seed_torch(seed=1029):
 	torch.backends.cudnn.deterministic = True
 seed_torch(0)
 
-E = 0
+# E = 0
 
 def main(
     batch_size: int = 32,
     max_ctx: int = 1024,
     ds_name: str = "sciq",
     w2s_generalisation: bool = False,
-    train1_name: str = "/adaboost/train1_10000_{}/".format(E),
+    train1_name: str = "/adaboost/train1_10000_{}/".format(0),
     train2_name: str = "/train2/",
     test_name: str = "/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
@@ -176,6 +182,7 @@ def main(
     log_prefix: str = "",
     # Set to an absurdly high value so we don't do intermediate evals by default.
     eval_every: int = 100000000,
+    rounds: int = args.E,
 ):
     # this is per device!
     if minibatch_size_per_device is None:
@@ -234,10 +241,10 @@ def main(
     print("train2_ds: ", len(train2_ds), "test_ds: ", len(test_ds))
 
     models = []
-    rounds = 3
+    # rounds = 3
     with torch.no_grad():
         ### model prepare
-        for E in range(0, rounds):
+        for E in range(0, rounds+1):
             subpath=os.path.join("weak_model_gt/10000", weak_model_size.replace("/", "_")) + str(E)
             save_path = os.path.join(results_folder, subpath)
             custom_kwargs = weak_model_config.custom_kwargs or {}
@@ -264,7 +271,12 @@ def main(
             ).to("cuda")
             already_trained = maybe_load_model(model)
             if already_trained:
-                model.load_state_dict(torch.load(os.path.join(save_path, "pytorch_model.bin")))
+                cp = torch.load(os.path.join(save_path, "pytorch_model.bin"))
+                new_cp = {}
+                for key in cp.keys():
+                    new_key = key[len('module.'):] if key.startswith('module.') else key
+                    new_cp[new_key] = cp[key]
+                model.load_state_dict(new_cp)
             # data parallel:  currently not supported with model parallel
             if torch.cuda.device_count() > 1:
                 model = torch.nn.DataParallel(model, output_device=0)
@@ -288,14 +300,14 @@ def main(
         ### predict
         io_device = model.device if hasattr(model, "device") else 0
         count = 0
-        model_acc = [0]*rounds
+        model_acc = [0]*(rounds+1)
 
         discrete = False
 
-        print("Test Results: ")
+        print("\nTest Results: ")
         for i in tqdm(test_ds):
             probs = 0
-            for m in range(E):
+            for m in range(rounds+1):
                 model = models[m][0]
                 input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
                 labels = torch.tensor(i["soft_label"]).unsqueeze(0)
@@ -323,13 +335,13 @@ def main(
         print("Final test results: ", count / len(test_ds))
         print("Individual test results: ", np.array(model_acc)/len(test_ds))
 
-        discrete = True
-        print("Train Results: ")
+        discrete = False
+        print("\nTrain Results: ")
         count = 0
-        model_acc = [0]*rounds
+        model_acc = [0]*(rounds+1)
         for i in tqdm(train2_ds):
             probs = 0
-            for m in range(E+1):
+            for m in range(rounds+1):
                 model = models[m][0]
                 input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
                 labels = torch.tensor(i["soft_label"]).unsqueeze(0)
