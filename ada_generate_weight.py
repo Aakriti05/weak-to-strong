@@ -277,7 +277,6 @@ def main(
     alpha = 0.5 * np.log((1 - e) / e)
     z = 2 * np.sqrt(e * (1 - e))
     print("Weighted Error: ", e, "alpha: ", alpha, "z: ", z)
-    # e  = 1 - result["avg_acc_inference"]
     def small_process(i):
         with torch.no_grad():
             input_ids = torch.tensor(i["input_ids"]).unsqueeze(0).to(io_device)
@@ -287,12 +286,10 @@ def main(
             
             preds = torch.argmax(probs)
             labels = torch.argmax(labels)
-            # print( "probs: ", probs, "preds: ", preds, "labels: ", labels, "weight: ", i["weight"])
             if preds == labels:
-                i["weight"] = (i["weight"] / (2 * (1 - e)))
+                i["weight"] = (i["weight"]*np.exp(-alpha)) #/ (2 * (1 - e)))
             else:
-                i["weight"] = (i["weight"] / e)
-            # print("weight after: ", i["weight"])
+                i["weight"] = (i["weight"]*np.exp(alpha)) # / (2*e))
             
             return i
     train_ds = train_ds.map(small_process)
