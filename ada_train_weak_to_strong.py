@@ -306,7 +306,7 @@ def main(
             lr=weak_lr,
             eval_batch_size=weak_eval_batch_size,
             inference_ds=train2_ds,
-            epochs=gt_epochs,
+            epochs= 3, #gt_epochs,
             linear_probe=linear_probe,
             optimizer_name=weak_optim,
         )
