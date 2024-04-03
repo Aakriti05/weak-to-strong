@@ -136,7 +136,8 @@ def main(
     max_ctx: int = 1024,
     ds_name: str = "sciq",
     weighted_sampling: bool = False,
-    split_by_difficulty: bool = True,
+    split_by_difficulty: bool = False,
+    split_by_random: bool = False,
     train1_name: str = "./bak_sciq/adaboost/train1_10000_{}/".format(E),
     train2_name: str = "./bak_sciq/train2/",
     test_name: str = "./bak_sciq/test",
@@ -245,6 +246,10 @@ def main(
         #     train1_ds = train_dataset.select(indices)
         #     train2_ds = train_dataset.select(np.argsort(rating)[::-1][5000:10000])
 
+    elif split_by_random:
+        split_data = train_dataset.train_test_split(test_size=0.5, seed=seed)
+        train1_ds, train2_ds = split_data["train"], split_data["test"]
+    
     else:
         train1_ds = train_dataset #load_from_disk(train1_name)
         train2_ds = train_dataset #load_from_disk(train2_name)

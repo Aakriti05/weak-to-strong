@@ -13,19 +13,21 @@ weighted_sampling=False
 gt_epochs=3
 loss="xent"
 w2s_generalisation=True
-rounds=10
+split_by_random=False
+split_by_difficulty=True
+rounds=29
 
-# python "./ada_train_weak.py" --split_by_difficulty $w2s_generalisation --loss_ $loss --weak_model_size $model --ds_name $ds_name --weighted_sampling $weighted_sampling --gt_epochs $gt_epochs
-# for Epoch in {1..28};
-# do
-#     for filename in "./ada_generate_weight.py" "ada_train_weak_weight.py"
-#     do
-#         echo $filename
-#         echo $Epoch
-#         python $filename --E $Epoch --weak_model_size $model --ds_name $ds_name --weighted_sampling $weighted_sampling --gt_epochs $gt_epochs
-#     done
-# done
+python "./ada_train_weak.py" --split_by_difficulty $split_by_difficulty --split_by_random $split_by_random --loss_ $loss --weak_model_size $model --ds_name $ds_name --weighted_sampling $weighted_sampling --gt_epochs $gt_epochs
+for Epoch in {1..28};
+do
+    for filename in "./ada_generate_weight.py" "ada_train_weak_weight.py"
+    do
+        echo $filename
+        echo $Epoch
+        python $filename --E $Epoch --weak_model_size $model --ds_name $ds_name --weighted_sampling $weighted_sampling --gt_epochs $gt_epochs
+    done
+done
 
 python ada_predict.py --weak_model_size $model --rounds $rounds --ds_name $ds_name --w2s_generalisation $w2s_generalisation --results_folder "./results"
 
-python ada_train_weak_to_strong.py --weak_model_size $model --adaboost True --strong_model_size $strong_model
+# python ada_train_weak_to_strong.py --weak_model_size $model --adaboost True --strong_model_size $strong_model
