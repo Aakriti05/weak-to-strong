@@ -48,10 +48,9 @@ MODEL_CONFIGS = [
         name="gpt2-large",
         default_lr=1e-5,
         eval_batch_size=32,
-        # custom_kwargs={
-        #     "bf16": torch.cuda.is_bf16_supported(),
-        #     "fp32": not torch.cuda.is_bf16_supported(),
-        # },
+        custom_kwargs={
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        },
     ),
     ModelConfig(
         name="gpt2-xl",
@@ -59,25 +58,24 @@ MODEL_CONFIGS = [
         eval_batch_size=2,
         gradient_checkpointing=True,
         model_parallel=True,
-        # custom_kwargs={
-        #     "bf16": torch.cuda.is_bf16_supported(),
-        #     "fp32": not torch.cuda.is_bf16_supported(),
-        # },
+        custom_kwargs={
+            "trust_remote_code": True,
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        },
     ),
     ModelConfig(
-        name="qwen-1.8B",
+        name="Qwen/Qwen-1_8B",
         default_lr=1e-5,
         eval_batch_size=2,
         gradient_checkpointing=True,
         model_parallel=True,
         custom_kwargs={
             "trust_remote_code": True,
-            "bf16": torch.cuda.is_bf16_supported(),
-            "fp32": not torch.cuda.is_bf16_supported(),
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
         },
     ),
     ModelConfig(
-        name="qwen-7B",
+        name="Qwen/Qwen-7B",
         default_lr=1e-5,
         eval_batch_size=2,
         gradient_checkpointing=True,
@@ -85,12 +83,11 @@ MODEL_CONFIGS = [
         # note: you will probably not be able to run this without many gpus
         custom_kwargs={
             "trust_remote_code": True,
-            "bf16": torch.cuda.is_bf16_supported(),
-            "fp32": not torch.cuda.is_bf16_supported(),
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
         },
     ),
     ModelConfig(
-        name="qwen-14B",
+        name="Qwen/Qwen-14B",
         default_lr=1e-5,
         eval_batch_size=2,
         gradient_checkpointing=True,
@@ -98,8 +95,7 @@ MODEL_CONFIGS = [
         # note: you will probably not be able to run this without bf16 support and many gpus
         custom_kwargs={
             "trust_remote_code": True,
-            "bf16": torch.cuda.is_bf16_supported(),
-            "fp32": not torch.cuda.is_bf16_supported(),
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
         },
     ),
     ModelConfig(

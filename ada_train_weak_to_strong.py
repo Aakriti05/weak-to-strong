@@ -150,7 +150,7 @@ def main(
     weak_optim: Optional[str] = None,
     strong_optim: Optional[str] = None,
     transfer_optim: Optional[str] = None,
-    gt_epochs: int = 2,
+    gt_epochs: int = 3,
     # defaults to gt_epochs
     transfer_epochs: Optional[int] = None,
     force_retrain: bool = False,
