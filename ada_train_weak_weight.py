@@ -25,6 +25,7 @@ parser.add_argument("--weak_model_size", type=str, default="gpt2-medium")
 parser.add_argument("--ds_name", type=str, default="sciq")
 parser.add_argument("--weighted_sampling", type=bool, default=False)
 parser.add_argument("--gt_epochs", type=int, default=2)
+parser.add_argument("--results_folder", type=str, default="./results")
 args = parser.parse_args()
 
 MODEL_CONFIGS = [
@@ -172,7 +173,7 @@ def main(
     seed: int = 42,
     minibatch_size_per_device: Optional[int] = 32,
     train_with_dropout: bool = False,
-    results_folder: str = "./results",
+    results_folder: str = args.results_folder, # "./results",
     linear_probe: bool = False,
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",

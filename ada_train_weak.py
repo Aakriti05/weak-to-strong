@@ -13,6 +13,7 @@ from datasets import Dataset
 # import tiktoken
 import weak_to_strong.logger as logger
 from weak_to_strong.common import get_tokenizer
+from datasets import concatenate_datasets
 from weak_to_strong.datasets import load_dataset, tokenize_dataset
 from datasets import load_from_disk
 from weak_to_strong.loss import logconf_loss_fn, product_loss_fn, xent_loss, weight_xent_loss
@@ -142,7 +143,7 @@ def main(
     train2_name: str = "./bak_sciq/train2/",
     test_name: str = "./bak_sciq/test",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
-    n_docs: int = 10000,
+    n_docs: int = 20000,
     n_test_docs: int = 2000,
     weak_model_size: str = "gpt2-medium",
     weak_lr: Optional[float] = None,
@@ -221,12 +222,21 @@ def main(
     
     
     if split_by_difficulty:
+        train_dataset = concatenate_datasets([train_dataset, test_ds])
         rating = 0 
-        with open("./data_rating/difficulties_sciq_10000_42.txt", "r") as f:
+        with open("./data_rating/difficulties_sciq_12679_42.txt", "r") as f:
             rating = f.readlines()
         sorted_rating = np.argsort([float(x.strip()) for x in rating])
-        train1_ds = train_dataset.select(sorted_rating[:len(sorted_rating)//2])
-        train2_ds = train_dataset.select(sorted_rating[len(sorted_rating)//2:])
+        train1_ds = train_dataset.select(sorted_rating[:(len(sorted_rating)-len(test_ds))//2])
+        train2_test = train_dataset.select(sorted_rating[(len(sorted_rating)-len(test_ds))//2:])
+        print(train2_test[0])
+        train2_test = train2_test.shuffle(seed=42)
+        print(train2_test[0])
+        
+        train2_ds = train2_test.select(np.arange(len(train2_test))[len(test_ds):])
+        test_ds = train2_test.select(np.arange(len(train2_test))[:len(test_ds)])
+        
+        print("Lengths of all Data: ", len(train1_ds), len(train2_ds), len(test_ds))
         print("lowest score:")
         for n in range(3):
             print(train1_ds[n])

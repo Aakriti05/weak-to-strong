@@ -412,7 +412,7 @@ def main(
             print("Individual strong train results: ", np.array(model_acc)/len(train2_ds))
 
             weak_test_ds = datasets.Dataset.from_list(results)
-            weak_test_ds.save_to_disk("./" + ds_name + "/adaboost/weak_data/".format())
+            weak_test_ds.save_to_disk("./" + ds_name + "/adaboost/weak_data_{rounds}/".format())
 
 
             # print(np.mean(weak_test_ds["acc"]))

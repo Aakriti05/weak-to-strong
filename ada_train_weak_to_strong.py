@@ -137,6 +137,7 @@ def main(
     ds_name: str = "sciq",
     split_by_difficulty: bool = True,
     adaboost:bool = True,
+    rounds: int = 26,
     transfer_loss: Union[str, Sequence[str]] = "xent", #logconf",
     n_docs: int = 10000, #10000,
     n_test_docs: int = 2000, #200,
@@ -291,7 +292,7 @@ def main(
 
     
     if adaboost:
-        weak_ds = load_from_disk(ds_name + "/adaboost/weak_data/".format()) #"./dataset/" + 
+        weak_ds = load_from_disk(ds_name + "/adaboost/weak_data_${rounds}/".format()) #"./dataset/" + 
 
         weak_accuracy = 1
     
