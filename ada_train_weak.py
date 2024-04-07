@@ -257,6 +257,7 @@ def main(
         #     train2_ds = train_dataset.select(np.argsort(rating)[::-1][5000:10000])
 
     elif split_by_random:
+        print("Splitting by random")
         split_data = train_dataset.train_test_split(test_size=0.5, seed=seed)
         train1_ds, train2_ds = split_data["train"], split_data["test"]
     

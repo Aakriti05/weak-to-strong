@@ -139,7 +139,7 @@ def main(
     adaboost:bool = True,
     rounds: int = 26,
     transfer_loss: Union[str, Sequence[str]] = "xent", #logconf",
-    n_docs: int = 10000, #10000,
+    n_docs: int = 20000, #10000,
     n_test_docs: int = 2000, #200,
     weak_model_size: str = "gpt2",
     weak_lr: Optional[float] = None,
