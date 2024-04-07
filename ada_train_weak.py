@@ -130,7 +130,7 @@ def seed_torch(seed=1029):
 	torch.backends.cudnn.deterministic = True
 
 E = 0 #int(sys.argv[1])
-seed_torch(E)
+seed_torch(1029)
 
 def main(
     batch_size: int = 32,

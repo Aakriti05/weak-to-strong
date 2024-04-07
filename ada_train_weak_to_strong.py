@@ -128,7 +128,7 @@ def seed_torch(seed=1029):
 	torch.backends.cudnn.deterministic = True
 
 # E = int(sys.argv[1])
-seed_torch(109)
+seed_torch(1029)
 
 
 def main(
