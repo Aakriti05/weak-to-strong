@@ -210,9 +210,9 @@ def main(
 
 
     if split_by_difficulty:
-        train1_ds = load_from_disk(ds_name + "/dataset_{weak_model_size}" + "/adaboost/train1_10000_0")
-        train2_ds = load_from_disk(ds_name + "/dataset_{weak_model_size}" + "/train2") #"./dataset/" + 
-        test_ds = load_from_disk(ds_name + "/dataset_{weak_model_size}" + "/test") #"./dataset/" +
+        train1_ds = load_from_disk(ds_name + "/" + weak_model_size + "/adaboost/train1_10000_0")
+        train2_ds = load_from_disk(ds_name + "/" + weak_model_size + "/train2") #"./dataset/" + 
+        test_ds = load_from_disk(ds_name + "/" + weak_model_size + "/test") #"./dataset/" +
 
     else:
         # Load dataset
@@ -292,7 +292,7 @@ def main(
 
     
     if adaboost:
-        weak_ds = load_from_disk(ds_name + "/" + weak_model_size + "/adaboost/weak_data_" + rounds "/".format()) #"./dataset/" + 
+        weak_ds = load_from_disk(ds_name + "/" + weak_model_size + "/adaboost/weak_data_" + str(rounds) + "/".format()) #"./dataset/" + 
 
         weak_accuracy = 1
     
