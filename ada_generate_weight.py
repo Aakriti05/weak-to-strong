@@ -219,7 +219,7 @@ def main(
 
 
     # Load dataset
-    train1_ds = load_from_disk("./" + ds_name + train1_name)
+    train1_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + train1_name)
 
     tokenizer = get_tokenizer(weak_model_config.name)
     train_ds = tokenize_dataset(train1_ds, tokenizer, max_ctx, weight = True)
@@ -297,7 +297,7 @@ def main(
             i["weight"] = i["weight"]/weight_sum
             return i
     train_ds = train_ds.map(small_process2)
-    train_ds.save_to_disk("./" + ds_name + "/adaboost/train1_10000_{}/".format(E))
+    train_ds.save_to_disk("./" + ds_name + "/" + weak_model_size + "/adaboost/train1_10000_{}/".format(E))
 
 
 

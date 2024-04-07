@@ -224,9 +224,9 @@ def main(
 
     # Load dataset
 
-    train1_ds = load_from_disk("./" + ds_name + train1_name)
-    train2_ds = load_from_disk("./" + ds_name + train1_name)
-    test_ds = load_from_disk("./" + ds_name + test_name)
+    train1_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + train1_name)
+    train2_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + train1_name)
+    test_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + test_name)
 
     if weighted_sampling:
         # weight_sum = np.sum(train1_ds["weight"])
