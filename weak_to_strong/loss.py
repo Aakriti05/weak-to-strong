@@ -50,7 +50,7 @@ class weight_xent_loss(LossFnBase):
         The mean of the cross entropy loss.
         """
         loss = torch.nn.functional.cross_entropy(logits, labels, reduction="none")
-        loss = loss * self.weights*5000
+        loss = loss * self.weights*5839
         return loss.mean()
 
         

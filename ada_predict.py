@@ -173,6 +173,8 @@ def main(
     eval_every: int = 100000000,
 ):
     # this is per device!
+    print("---------------------------------------------------")
+    print("Round: ", rounds)
     if minibatch_size_per_device is None:
         minibatch_size_per_device = 1
  

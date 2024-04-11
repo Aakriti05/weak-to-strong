@@ -222,6 +222,7 @@ def main(
     
     
     if split_by_difficulty:
+        print("Splitting by difficulty")
         train_dataset = concatenate_datasets([train_dataset, test_ds])
         rating = 0 
         with open("./data_rating/difficulties_sciq_12679_42.txt", "r") as f:
