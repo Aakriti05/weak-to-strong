@@ -151,6 +151,7 @@ def main(
     weak_optim: Optional[str] = None,
     strong_optim: Optional[str] = None,
     transfer_optim: Optional[str] = None,
+    weak_gt_epochs: int = 3,
     gt_epochs: int = 3,
     # defaults to gt_epochs
     transfer_epochs: Optional[int] = None,
@@ -307,7 +308,7 @@ def main(
             lr=weak_lr,
             eval_batch_size=weak_eval_batch_size,
             inference_ds=train2_ds,
-            epochs= 3, #gt_epochs,
+            epochs= weak_gt_epochs,
             linear_probe=linear_probe,
             optimizer_name=weak_optim,
         )
@@ -368,7 +369,7 @@ def main(
             ),
             lr=transfer_lr,
             eval_batch_size=strong_eval_batch_size,
-            epochs=transfer_epochs,
+            epochs=gt_epochs,
             linear_probe=linear_probe,
             optimizer_name=transfer_optim,
         )
