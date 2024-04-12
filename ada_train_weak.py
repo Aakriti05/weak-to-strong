@@ -368,9 +368,9 @@ def main(
             f,
         )
 
-    train1_ds.save_to_disk("./" + ds_name + "/" + weak_model_size + "/adaboost/train1_10000_{}/".format(0))
-    train2_ds.save_to_disk("./" + ds_name + "/" + weak_model_size + "/train2")
-    test_ds.save_to_disk("./" + ds_name + "/" + weak_model_size + "/test")
+    train1_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/adaboost/train1_10000_{}/".format(0))
+    train2_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/train2")
+    test_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/test")
 
 
 if __name__ == "__main__":
