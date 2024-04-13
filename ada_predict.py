@@ -217,13 +217,13 @@ def main(
 
     # Load dataset
     if w2s_generalisation:
-        test_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + test_name)
-        train2_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + train1_name)
-        train1_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + train2_name)
+        test_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + test_name)
+        train2_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + train1_name)
+        train1_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + train2_name)
 
     else:
-        test_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + test_name)
-        train2_ds = load_from_disk("./" + ds_name + "/" + weak_model_size + train2_name)
+        test_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + test_name)
+        train2_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + train2_name)
     
     tokenizer = get_tokenizer(weak_model_config.name)
     test_ds = tokenize_dataset(test_ds, tokenizer, max_ctx, weight = None)
@@ -414,7 +414,7 @@ def main(
             print("Individual strong train results: ", np.array(model_acc)/len(train2_ds))
 
             weak_test_ds = datasets.Dataset.from_list(results)
-            weak_test_ds.save_to_disk("./" + ds_name + "/" + weak_model_size + "/adaboost/weak_data_" + str(rounds) + "/".format())
+            weak_test_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/adaboost/weak_data_" + str(rounds) + "/".format())
 
 
             # print(np.mean(weak_test_ds["acc"]))
