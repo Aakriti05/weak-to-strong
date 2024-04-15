@@ -168,7 +168,7 @@ def main(
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
     # Set to an absurdly high value so we don't do intermediate evals by default.
-    eval_every: int = 1000000,
+    eval_every: int = 100,
 ):
     seed_torch(1029)
     # this is per device!
@@ -213,9 +213,9 @@ def main(
     strong_eval_batch_size = strong_model_config.eval_batch_size
 
     # Load dataset
-    dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs))
+    dataset = load_dataset(ds_name, seed=seed, split_sizes=dict(train=n_docs, test=n_test_docs, validation=n_test_docs))
     # Split the training dataset in half
-    train_dataset, test_ds = dataset["train"], dataset["test"]
+    train_dataset, test_ds, val_ds = dataset["train"], dataset["test"], dataset["validation"]
 
     if weighted_sampling:
         loss_ = "xent"
@@ -223,13 +223,15 @@ def main(
     
     if split_by_difficulty:
         print("Splitting by difficulty")
-        train_dataset = concatenate_datasets([train_dataset, test_ds])
+        train_dataset = concatenate_datasets([train_dataset, test_ds, val_ds])
         rating = 0 
-        with open("./data_rating/difficulties_sciq_12679_42.txt", "r") as f:
+        with open("./data_rating/difficulties_sciq_13679_42.txt", "r") as f:
             rating = f.readlines()
         sorted_rating = np.argsort([float(x.strip()) for x in rating])
-        train1_ds = train_dataset.select(sorted_rating[:(len(sorted_rating)-len(test_ds))//2])
-        train2_test = train_dataset.select(sorted_rating[(len(sorted_rating)-len(test_ds))//2:])
+        train1_ds = train_dataset.select(sorted_rating[:(len(sorted_rating)-len(test_ds)-len(val_ds))//2])
+        val_ds = train_dataset.select(sorted_rating[(len(sorted_rating)-len(test_ds)-len(val_ds))//2: ((len(sorted_rating)-len(test_ds)-len(val_ds))//2)+len(val_ds)])
+        train2_test = train_dataset.select(sorted_rating[((len(sorted_rating)-len(test_ds)-len(val_ds))//2)+len(val_ds):])
+        
         print(train2_test[0])
         train2_test = train2_test.shuffle(seed=42)
         print(train2_test[0])
@@ -237,7 +239,7 @@ def main(
         train2_ds = train2_test.select(np.arange(len(train2_test))[len(test_ds):])
         test_ds = train2_test.select(np.arange(len(train2_test))[:len(test_ds)])
         
-        print("Lengths of all Data: ", len(train1_ds), len(train2_ds), len(test_ds))
+        print("Lengths of all Data: ", len(train1_ds), len(train2_ds), len(test_ds), len(val_ds))
         print("lowest score:")
         for n in range(3):
             print(train1_ds[n])
@@ -268,12 +270,16 @@ def main(
     
     test_ds = test_ds #load_from_disk(test_name)
 
-    print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds))
+    print("len(train1):", len(train1_ds), "len(train2):", len(train2_ds), "len(test):", len(test_ds), "len(val):", len(val_ds))
+    # train1_ds = train1_ds.shuffle(seed=7)
+    # train2_ds = train2_ds.shuffle(seed=7)
+    # test_ds = test_ds.shuffle(seed=7)
 
     # Tokenize datasets
     tokenizer = get_tokenizer(weak_model_config.name)
     train1_ds = tokenize_dataset(train1_ds, tokenizer, max_ctx, weight = 1/len(train1_ds))
     test_ds = tokenize_dataset(test_ds, tokenizer, max_ctx, weight= None)
+    val_ds = tokenize_dataset(val_ds, tokenizer, max_ctx, weight= None)
     train2_ds = tokenize_dataset(train2_ds, tokenizer, max_ctx, weight=1/len(train2_ds))
 
     
@@ -340,7 +346,7 @@ def main(
     weak_test_results, weak_ds = train_model(
         weak_model_config,
         train1_ds,
-        test_ds,
+        val_ds,
         loss_type= loss_,
         label="weak",
         subpath=os.path.join("weak_model_gt/10000", weak_model_size.replace("/", "_") + str(E)),
@@ -371,6 +377,7 @@ def main(
     train1_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/adaboost/train1_10000_{}/".format(0))
     train2_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/train2")
     test_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/test")
+    val_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/val")
 
 
 if __name__ == "__main__":

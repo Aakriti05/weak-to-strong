@@ -152,6 +152,7 @@ def main(
     train1_name: str = "/adaboost/train1_10000_{}/".format(E),
     train2_name: str = "/train2/",
     test_name: str = "/test",
+    val_name: str = "/val",
     transfer_loss: Union[str, Sequence[str]] = "xent,logconf",
     n_docs: int = 10000,
     n_test_docs: int = 2000,
@@ -178,7 +179,7 @@ def main(
     lr_schedule: str = "cosine_anneal",
     log_prefix: str = "",
     # Set to an absurdly high value so we don't do intermediate evals by default.
-    eval_every: int = 100000000,
+    eval_every: int = 100,
 ):
     seed_torch(1029)
     print("batch size:", batch_size, "E: ", E)
@@ -228,6 +229,7 @@ def main(
     train1_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + train1_name)
     train2_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + train1_name)
     test_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + test_name)
+    val_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + val_name)
 
     if weighted_sampling:
         # weight_sum = np.sum(train1_ds["weight"])
@@ -313,7 +315,7 @@ def main(
     weak_test_results, weak_ds = train_model(
         weak_model_config,
         train1_ds,
-        test_ds,
+        val_ds,
         loss_type=loss_,
         label="weak",
         subpath=os.path.join("weak_model_gt/10000", weak_model_size.replace("/", "_") + str(E)),

@@ -8,15 +8,15 @@ echo `which python`
 
 weak_model="gpt2"
 strong_model="gpt2-medium"
-ds_name="sciq"
+ds_name="sciq" # "amazon_polarity"
 weighted_sampling=False
-weak_gt_epochs=3
-strong_gt_epochs=3
+weak_gt_epochs=20
+strong_gt_epochs=20
 loss="xent"
 w2s_generalisation=True
-split_by_random=False
+split_by_random=Flase
 split_by_difficulty=True
-start_round=1
+start_round=2
 rounds=10
 adaboost=True
 

@@ -89,6 +89,11 @@ def train_model(
     # a bit more data than other ones, but hopefully should not be too big of a deal.
     io_device = model.device if hasattr(model, "device") else 0
 
+    # Early Stopping Parameters
+    patience = 2  # Number of evaluations to wait for improvement
+    best_val_acc = 0.0  # Track the highest validation accuracy
+    steps_since_improvement = 0  # Track steps since last improvement
+    
     while step < nsteps:
         loss_tot = 0
         if eval_every and step % eval_every == 0:
@@ -105,6 +110,22 @@ def train_model(
             eval_accs = np.mean([r["acc"] for r in eval_results])
             eval_acc_dict[step] = eval_accs
             logger.logkv("eval_accuracy", eval_accs)
+
+            # Early stopping check
+            if eval_accs > best_val_acc:
+                best_val_acc = eval_accs
+                steps_since_improvement = 0
+            else:
+                steps_since_improvement += 1
+
+            print(
+                f"Step: {step}/{nsteps} Validation Accuracy: {eval_accs} Best Accuracy: {best_val_acc} Steps Since Improvement: {steps_since_improvement}"
+            )
+            
+            if steps_since_improvement >= patience:
+                print(f"Stopping early at step {step} due to no improvement in validation accuracy.")
+                break
+
         all_logits = []
         all_labels = []
         all_weights = []
@@ -228,10 +249,10 @@ def train_and_save_model(
             else:
                 state_dict = torch.load(os.path.join(save_path, "pytorch_model.bin"))
                 # state_dict = load_file(os.path.join(save_path, "pytorch_model.bin"))
-                # state_dict = {
-                #     k.replace("transformer.module", "transformer"): v
-                #     for (k, v) in state_dict.items()
-                # }
+                state_dict = {
+                    k.replace("transformer.module", "transformer"): v
+                    for (k, v) in state_dict.items()
+                }
                 custom_kwargs["state_dict"] = state_dict
             return True
         return False
