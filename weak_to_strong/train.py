@@ -305,7 +305,9 @@ def train_and_save_model(
             # (model if hasattr(model, "save_pretrained") else model.module).save_pretrained(
             #     save_path
             # )
-            torch.save(model.state_dict(), os.path.join(save_path, "pytorch_model.bin"))
+            state_dict = model.state_dict()
+            state_dict = {k.replace("module.", ""): v for k, v in state_dict.items() if k.startswith("module.")}
+            torch.save(state_dict, os.path.join(save_path, "pytorch_model.bin"))
             print("saved", save_path)
 
     inference_results = None
