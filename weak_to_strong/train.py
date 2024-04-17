@@ -70,6 +70,8 @@ def train_model(
 
     if optimizer_name.lower() == "adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    elif optimizer_name.lower() == "adamw":
+        optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
     elif optimizer_name.lower() == "adafactor":
         optimizer = toptim.Adafactor(model.parameters(), lr=lr)
     else:

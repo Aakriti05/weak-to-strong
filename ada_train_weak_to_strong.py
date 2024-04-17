@@ -26,6 +26,7 @@ MODEL_CONFIGS = [
         custom_kwargs={
             "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
         },
+        default_optimizer="adamw",
     ),
     ModelConfig(
         name="gpt2-medium",
@@ -34,6 +35,7 @@ MODEL_CONFIGS = [
         custom_kwargs={
             "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
         },
+        default_optimizer="adamw",
     ),
     ModelConfig(
         name="gpt2-large",
