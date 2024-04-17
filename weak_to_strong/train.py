@@ -39,6 +39,7 @@ def train_model(
     eval_batch_size: int = 256,
     minibatch_size: int = 8,
     eval_ds: Optional[datasets.Dataset] = None,
+    test_ds: Optional[datasets.Dataset] = None,
     gradient_checkpointing: bool = False,
     train_with_dropout: bool = False,
     epochs: int = 3,
@@ -198,9 +199,9 @@ def train_model(
     if eval_every:
         print("Final evaluation:")
         if num_labels >= 2:
-            final_eval_results = eval_model_acc(model, eval_ds, eval_batch_size)
+            final_eval_results = eval_model_acc(model, test_ds, eval_batch_size)
         else:
-            final_eval_results = eval_model_logits(model, eval_ds, eval_batch_size)
+            final_eval_results = eval_model_logits(model, test_ds, eval_batch_size)
         logger.logkv("eval_accuracy", np.mean([r["acc"] for r in final_eval_results]))
         logger.dumpkvs()
     return final_eval_results
@@ -210,6 +211,7 @@ def train_and_save_model(
     model_config: ModelConfig,
     train_ds: datasets.Dataset,
     test_ds: datasets.Dataset,
+    val_ds: datasets.Dataset,
     inference_ds: Optional[datasets.Dataset] = None,
     *,
     batch_size: int,
@@ -308,7 +310,8 @@ def train_and_save_model(
             batch_size,
             lr=lr,
             epochs=epochs,
-            eval_ds=test_ds,
+            eval_ds=val_ds,
+            test_ds=test_ds,
             gradient_checkpointing=gradient_checkpointing,
             loss_fn=loss_fn,
             eval_batch_size=eval_batch_size,

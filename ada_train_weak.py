@@ -287,6 +287,7 @@ def main(
         model_config: ModelConfig,
         train_ds: torch.utils.data.Dataset,
         test_ds: torch.utils.data.Dataset,
+        val_ds: torch.utils.data.Dataset,
         *,
         loss_type: str,
         label: str,
@@ -324,6 +325,7 @@ def main(
             model_config,
             train_ds,
             test_ds,
+            val_ds,
             inference_ds=inference_ds,
             batch_size=batch_size,
             save_path=save_path,
@@ -346,6 +348,7 @@ def main(
     weak_test_results, weak_ds = train_model(
         weak_model_config,
         train1_ds,
+        test_ds,
         val_ds,
         loss_type= loss_,
         label="weak",
