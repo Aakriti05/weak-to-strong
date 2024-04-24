@@ -39,8 +39,9 @@ MODEL_CONFIGS = [
     ),
     ModelConfig(
         name="gpt2-large",
-        default_lr=1e-5,
+        default_lr=1e-4,
         eval_batch_size=32,
+        default_optimizer="adamw",
         custom_kwargs={
             "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
         },

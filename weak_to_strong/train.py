@@ -230,10 +230,10 @@ def train_and_save_model(
             else:
                 state_dict = torch.load(os.path.join(save_path, "pytorch_model.bin"))
                 # state_dict = load_file(os.path.join(save_path, "pytorch_model.bin"))
-                # state_dict = {
-                #     k.replace("transformer.module", "transformer"): v
-                #     for (k, v) in state_dict.items()
-                # }
+                state_dict = {
+                    k.replace("transformer.module", "transformer"): v
+                    for (k, v) in state_dict.items()
+                }
                 custom_kwargs["state_dict"] = state_dict
             return True
         return False
