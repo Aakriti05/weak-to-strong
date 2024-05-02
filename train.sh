@@ -6,18 +6,18 @@ echo `which python`
 conda activate w2s
 echo `which python`
 
-weak_model="gpt2"
-strong_model="gpt2-medium"
+weak_model="gpt2-large"
+strong_model="gpt2-xl"
 ds_name="sciq"
 weighted_sampling=False
 weak_gt_epochs=3
 strong_gt_epochs=3
 loss="xent"
 w2s_generalisation=True
-split_by_random=True
-split_by_difficulty=False
-start_round=1
-rounds=12 #12 #30
+split_by_random=False
+split_by_difficulty=True
+start_round=2
+rounds=10 #12 #30
 adaboost=True
 
 [ -d "./${ds_name}" ] && mv "./${ds_name}" "./${ds_name}_data" || echo "Directory does not exist, skipping move."

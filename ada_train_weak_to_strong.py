@@ -58,10 +58,11 @@ MODEL_CONFIGS = [
     ),
     ModelConfig(
         name="Qwen/Qwen-1_8B",
-        default_lr=1e-5,
+        default_lr=2e-5,
         eval_batch_size=2,
         gradient_checkpointing=True,
         model_parallel=True,
+        default_optimizer="adamw",
         custom_kwargs={
             "trust_remote_code": True,
             "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,

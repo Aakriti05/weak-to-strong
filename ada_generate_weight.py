@@ -68,8 +68,8 @@ MODEL_CONFIGS = [
         name="gpt2-xl",
         default_lr=1e-5,
         eval_batch_size=2,
-        gradient_checkpointing=True,
-        model_parallel=True,
+        # gradient_checkpointing=True,
+        # model_parallel=True,
         custom_kwargs={
             "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
         },
