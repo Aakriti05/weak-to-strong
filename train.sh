@@ -6,8 +6,8 @@ echo `which python`
 conda activate w2s
 echo `which python`
 
-weak_model="gpt2-large"
-strong_model="gpt2-xl"
+weak_model="Qwen/Qwen1.5-1.8B"
+strong_model="Qwen/Qwen1.5-1.8B"
 ds_name="sciq"
 weighted_sampling=False
 weak_gt_epochs=3

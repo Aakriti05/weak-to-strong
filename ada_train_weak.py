@@ -58,7 +58,31 @@ MODEL_CONFIGS = [
         },
     ),
     ModelConfig(
-        name="Qwen/Qwen-1_8B",
+        name="Qwen/Qwen1.5-0.5B",
+        default_lr=2e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        default_optimizer="adamw",
+        custom_kwargs={
+            "trust_remote_code": True,
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        },
+    ),
+    ModelConfig(
+        name="Qwen/Qwen1.5-1.8B",
+        default_lr=2e-5,
+        eval_batch_size=2,
+        gradient_checkpointing=True,
+        model_parallel=True,
+        default_optimizer="adamw",
+        custom_kwargs={
+            "trust_remote_code": True,
+            "torch_dtype": torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float32,
+        },
+    ),
+    ModelConfig(
+        name="Qwen/Qwen-1_8B", 
         default_lr=2e-5,
         eval_batch_size=2,
         gradient_checkpointing=True,
