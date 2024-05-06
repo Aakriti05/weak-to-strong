@@ -408,9 +408,10 @@ def main(
 
     if adaboost:
         weak_acc = weak_accuracy
+        strong_acc = 1
     else:
         weak_acc = np.mean([x["acc"] for x in weak_test_results])
-    strong_acc = np.mean([x["acc"] for x in strong_test_results])
+        strong_acc = np.mean([x["acc"] for x in strong_test_results])
     res_dict = {
         "weak_acc": weak_acc,
         "strong_acc": strong_acc,
