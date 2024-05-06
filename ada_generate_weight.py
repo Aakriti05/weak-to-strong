@@ -172,6 +172,7 @@ def main(
     max_ctx: int = 1024,
     ds_name: str = "sciq",
     weighted_sampling: bool = args.weighted_sampling,
+    split_by_random: bool = False,
     train1_name: str = "/adaboost/train1_10000_{}/".format(E-1),
     train2_name: str = "./sciq/validation/",
     test_name: str = "/data2/kongchao/superalignment/myweak2strong2/myweak2strong/sciq/test",
@@ -246,7 +247,12 @@ def main(
 
 
     # Load dataset
-    train1_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + train1_name)
+    if split_by_random:
+        f = "_data/random/"
+    else:
+        f = "_data/"
+    
+    train1_ds = load_from_disk("./" + ds_name + f + weak_model_size + train1_name)
 
     tokenizer = get_tokenizer(weak_model_config.name)
     train_ds = tokenize_dataset(train1_ds, tokenizer, max_ctx, weight = True)
@@ -324,7 +330,7 @@ def main(
             i["weight"] = i["weight"]/weight_sum
             return i
     train_ds = train_ds.map(small_process2)
-    train_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/adaboost/train1_10000_{}/".format(E))
+    train_ds.save_to_disk("./" + ds_name + f + weak_model_size + "/adaboost/train1_10000_{}/".format(E))
 
 
 

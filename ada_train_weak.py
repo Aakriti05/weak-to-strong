@@ -395,10 +395,14 @@ def main(
             res_dict,
             f,
         )
-
-    train1_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/adaboost/train1_10000_{}/".format(0))
-    train2_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/train2")
-    test_ds.save_to_disk("./" + ds_name + "_data" + "/" + weak_model_size + "/test")
+    if split_by_random:
+        f = "_data/random/"
+    else:
+        f = "_data/"
+    
+    train1_ds.save_to_disk("./" + ds_name + f + weak_model_size + "/adaboost/train1_10000_{}/".format(0))
+    train2_ds.save_to_disk("./" + ds_name + f + weak_model_size + "/train2")
+    test_ds.save_to_disk("./" + ds_name + f + weak_model_size + "/test")
 
 
 if __name__ == "__main__":

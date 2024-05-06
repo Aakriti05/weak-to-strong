@@ -177,6 +177,7 @@ def main(
     max_ctx: int = 1024,
     ds_name: str = "sciq",
     weighted_sampling: bool = args.weighted_sampling,
+    split_by_random: bool = False,
     train1_name: str = "/adaboost/train1_10000_{}/".format(E),
     train2_name: str = "/train2/",
     test_name: str = "/test",
@@ -252,10 +253,14 @@ def main(
     strong_eval_batch_size = strong_model_config.eval_batch_size
 
     # Load dataset
+    if split_by_random:
+        f = "_data/random/"
+    else:
+        f = "_data/"
 
-    train1_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + train1_name)
-    train2_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + train1_name)
-    test_ds = load_from_disk("./" + ds_name + "_data" + "/" + weak_model_size + test_name)
+    train1_ds = load_from_disk("./" + ds_name + f + weak_model_size + train1_name)
+    train2_ds = load_from_disk("./" + ds_name + f + weak_model_size + train1_name)
+    test_ds = load_from_disk("./" + ds_name + f + weak_model_size + test_name)
 
     if weighted_sampling:
         # weight_sum = np.sum(train1_ds["weight"])

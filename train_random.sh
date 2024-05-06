@@ -14,9 +14,9 @@ weak_gt_epochs=3
 strong_gt_epochs=3
 loss="xent"
 w2s_generalisation=True
-split_by_random=False
-split_by_difficulty=True
-start_round=10
+split_by_random=True
+split_by_difficulty=False
+start_round=2
 rounds=30 #12 #30
 adaboost=True
 
